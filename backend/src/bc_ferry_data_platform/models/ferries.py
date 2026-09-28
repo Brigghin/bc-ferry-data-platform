@@ -1,11 +1,17 @@
+"""Define response models for ferry routes and sailing times."""
+
 from pydantic import BaseModel
 
-class ferry_route(BaseModel):
+
+class FerryRoute(BaseModel):
+    """Represents a ferry route with its scheduled departures."""
     source: str
     destination: str
-    ferries: list[ferries_timing]
+    ferries: list[FerriesTiming]
 
-class ferries_timing(BaseModel):
+
+class FerriesTiming(BaseModel):
+    """Represents the timing information for a ferry departure."""
     departed: bool
     departure_time: str
     arrival_time: str
