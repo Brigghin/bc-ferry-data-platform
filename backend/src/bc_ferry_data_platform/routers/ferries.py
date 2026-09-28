@@ -1,7 +1,6 @@
 from datetime import time, datetime
 
-import httpx
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 
 from ..models.ferries import ferry_route
 from ..services.ferries import fetch_ferries
