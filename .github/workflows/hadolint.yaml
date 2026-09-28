@@ -6,11 +6,12 @@ on:
 
 jobs:
   run-hadolint:
+    name: Lint Dockerfile
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Lint Dockerfile
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@v7.0.1
         with:
-          dockerfile: DockerFile
+          dockerfile: Dockerfile
           failure-threshold: warning
