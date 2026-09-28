@@ -1,0 +1,10 @@
+# Changelog
+
+## [0.2.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.1.0...v0.2.0) (2026-09-28)
+
+
+### Features
+
+* Add Docker support, add release please workflow, and update dependencies in pyproject.toml ([2aed777](https://github.com/Brigghin/bc-ferry-data-platform/commit/2aed777693eff9e3c5c0fa368271f1f340dc9501))
+* Add docker, PR template, release please, and update dependencies ([c6f5276](https://github.com/Brigghin/bc-ferry-data-platform/commit/c6f527677037b01d0362fce6a1c5d6dd3da9d727))
+* Added the base API code for consuming and filter data from the BCFerriesAPI ([3b0dba3](https://github.com/Brigghin/bc-ferry-data-platform/commit/3b0dba363ac2aba684ad9d34e8f6a489c186ec0e))
