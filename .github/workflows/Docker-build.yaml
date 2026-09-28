@@ -2,10 +2,11 @@ name: DockerBuild
 
 on:
   push:
+    branches-ignore:
+      - 'release-please--**'
 
 jobs:
   docker:
-    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-latest
     steps:
       -
