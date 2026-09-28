@@ -1,0 +1,15 @@
+FROM python:3.14
+WORKDIR /app
+
+RUN pip install uv
+
+#Copy and install just the dependencies so Docker can cache and reuse this step
+COPY ./backend/pyproject.toml ./backend/uv.lock /app/
+RUN uv sync --locked --no-install-project
+
+#Copy and install the actual project files
+COPY ./backend /app
+RUN uv sync --locked
+
+
+CMD ["uv", "run", "fastapi", "dev"] 
