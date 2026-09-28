@@ -1,0 +1,34 @@
+name: Hadolint
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  run-hadolint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+  Update-PR:
+    runs-on: ubuntu-latest
+    steps:
+      uses: actions/github-script@v9
+      if: github.event_name == 'pull_request'
+      with:
+        script: |
+          const output = `
+          #### Hadolint: \`${{ steps.hadolint.outcome }}\`
+          \`\`\`
+          ${process.env.HADOLINT_RESULTS}
+          \`\`\`
+          `;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: output
+          })
