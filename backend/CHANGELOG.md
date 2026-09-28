@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.4.1...v0.5.0) (2026-09-28)
+
+
+### Features
+
+* added a new pylint workflow and added required dependencies to project ([7bc9041](https://github.com/Brigghin/bc-ferry-data-platform/commit/7bc90415da34da2e934f580cd7a7f079f1b2467d))
+
 ## [0.4.1](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.4.0...v0.4.1) (2026-09-28)
 
 
