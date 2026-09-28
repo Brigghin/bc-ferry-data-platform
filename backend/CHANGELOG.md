@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.4.0...v0.4.1) (2026-09-28)
+
+
+### Bug Fixes
+
+* update version to 0.4.0 in uv.lock and fix jsonpath in release-please config ([5b01fab](https://github.com/Brigghin/bc-ferry-data-platform/commit/5b01faba026d3af661f08590985849e844c87de2))
+
 ## [0.4.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.3.0...v0.4.0) (2026-09-28)
 
 
