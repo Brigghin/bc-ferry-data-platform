@@ -1,86 +1,67 @@
-from datetime import time, datetime
+"""Fetch and transform BC Ferries sailing data for the API."""
+
+from datetime import datetime, time
 
 import httpx
-from fastapi import APIRouter, HTTPException
 
-from ..models.ferries import ferries_timing, ferry_route
+from ..models.ferries import FerryRoute, FerriesTiming
 
 BASE_URL = "https://www.bcferriesapi.ca/v2"
 
-'''
-This function helps to make the ferries_timing model for the 
-ferry_route model
-
-:param sailing_list: Sailing_list is the dictionary of ferry sailing time
-from the BCferriesapo
-
-:return: This function returns a list of ferries_timing objects
-'''
-def ferries_time_helper(sailing_list: dict) -> list[ferries_timing]:
+def ferries_time_helper(sailing_list: list[dict[str, str]]) -> list[FerriesTiming]:
+    """Convert upstream sailing-time records to response models."""
     ferries_timing_list = []
     for timing in sailing_list:
-        #Find the time for both arrival and departure
-        for i in range(2):
-            if i == 0:
-                arrival_departure = "time"
-            else:
-                arrival_departure = "arrivalTime"
+        # Find the time for both arrival and departure.
+        for time_field in ("time", "arrivalTime"):
+            time_text = timing[time_field]
 
-            #Convert the time into 24hr
-            if timing[arrival_departure][-2:] == "am":
-                hour = int(timing[arrival_departure].split(":")[0])
+            # Convert the time into 24-hour format.
+            if time_text[-2:] == "am":
+                hour = int(time_text.split(":")[0])
             else:
-                hour = int(timing[arrival_departure].split(":")[0])%12 + 12
-            minute = int(timing[arrival_departure].split(":")[1][:2])
+                hour = int(time_text.split(":")[0]) % 12 + 12
+            minute = int(time_text.split(":")[1][:2])
 
-            #Create a time object and convert it to a string
-            t = time(hour=hour, minute=minute)
-            time_str = t.strftime("%H:%M")
-            if i == 0:
-               departure_time = time_str
+            # Create a time object and convert it to a string.
+            sailing_time = time(hour=hour, minute=minute).strftime("%H:%M")
+            if time_field == "time":
+                departure_time = sailing_time
             else:
-                arrival_time = time_str
+                arrival_time = sailing_time
 
-        #Get the current time and compare it to the departure time to update the status of the ferry
+        # Compare the departure time with the server's current time.
         now = datetime.now()
-        current_time = time(hour=int(now.hour), minute=int(now.minute))
-        current_time = current_time.strftime("%H:%M")
-        if current_time > departure_time:
-            departed = True
-        else:
-            departed = False
+        current_time = time(hour=now.hour, minute=now.minute).strftime("%H:%M")
+        departed = current_time > departure_time
 
-        #Remove the leading zero if the time hour is somthing like "05"
-        departure_time = departure_time[1:] if departure_time[0] == "0" else departure_time 
+        # Remove the leading zero from single-digit hours.
+        departure_time = departure_time[1:] if departure_time[0] == "0" else departure_time
         arrival_time = arrival_time[1:] if arrival_time[0] == "0" else arrival_time
 
-        timing_object = ferries_timing(
-            departed = departed,
-            departure_time = departure_time,
-            arrival_time = arrival_time
+        timing_object = FerriesTiming(
+            departed=departed,
+            departure_time=departure_time,
+            arrival_time=arrival_time,
         )
 
         ferries_timing_list.append(timing_object)
 
     return ferries_timing_list
 
-'''
-Parse and fetch the list of ferries using from the BCFerries API keeping only needed data
-
-:return: A list of ferry_route models that define all routes and their accompanying sailings
-'''
-async def fetch_ferries() -> list[ferry_route]:
+async def fetch_ferries() -> list[FerryRoute]:
+    """Fetch ferry routes and map their sailings to response models."""
     async with httpx.AsyncClient() as client:
         response = await client.get(f"{BASE_URL}/noncapacity/")
         response.raise_for_status()
         data = response.json()
 
-        results = []
+        results: list[FerryRoute] = []
         for route in data["routes"]:
-            parsed_route = ferry_route(
-                source = route["fromTerminalCode"],
-                destination= route["toTerminalCode"],
-                ferries= ferries_time_helper(route["sailings"])
+            parsed_route = FerryRoute(
+                source=route["fromTerminalCode"],
+                destination=route["toTerminalCode"],
+                ferries=ferries_time_helper(route["sailings"]),
             )
             results.append(parsed_route)
     return results
