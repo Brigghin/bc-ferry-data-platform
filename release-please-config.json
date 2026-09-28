@@ -1,0 +1,16 @@
+{
+  "packages": {
+    "backend": {
+      "release-type": "python",
+      "package-name": "bc-ferry-data-platform",
+      "include-component-in-tag": false,
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name=='bc-ferry-data-platform')].version"
+        }
+      ]
+    }
+  }
+}
