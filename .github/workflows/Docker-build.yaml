@@ -1,10 +1,11 @@
-name: ci
+name: DockerBuild
 
 on:
   push:
 
 jobs:
   docker:
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-latest
     steps:
       -
