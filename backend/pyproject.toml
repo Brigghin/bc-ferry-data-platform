@@ -19,3 +19,12 @@ build-backend = "uv_build"
 
 [tool.fastapi]
 entrypoint = "bc_ferry_data_platform.main:app"
+
+[tool.pylint.main]
+load-plugins = ["pylint_actions"]
+
+[dependency-groups]
+dev = [
+    "pylint>=4.0.9",
+    "pylint-actions>=0.7.0",
+]
