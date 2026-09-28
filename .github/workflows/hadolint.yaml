@@ -6,6 +6,7 @@ on:
 
 jobs:
   run-hadolint:
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     name: Lint Dockerfile
     runs-on: ubuntu-latest
     steps:
