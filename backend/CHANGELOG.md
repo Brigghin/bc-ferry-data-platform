@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.2.0...v0.3.0) (2026-09-28)
+
+
+### Features
+
+* Add version endpoint and update documentation ([c497fb3](https://github.com/Brigghin/bc-ferry-data-platform/commit/c497fb39aec85a6305720eac05b5567c268b3009))
+* Add version endpoint and update documentation ([ee35e51](https://github.com/Brigghin/bc-ferry-data-platform/commit/ee35e51d3ea994579752d195f70f8bc82febba06))
+
 ## [0.2.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.1.0...v0.2.0) (2026-09-28)
 
 
