@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.3.0...v0.4.0) (2026-09-28)
+
+
+### Features
+
+* Add docker build push workflow ([1e53941](https://github.com/Brigghin/bc-ferry-data-platform/commit/1e5394175e7ba766fac7fba0f04d7fd5cccfed7a))
+
 ## [0.3.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.2.0...v0.3.0) (2026-09-28)
 
 
