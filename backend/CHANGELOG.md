@@ -1,5 +1,16 @@
 # Changelog
 
+## [1.0.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.5.0...v1.0.0) (2026-09-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* address release please issues ([#31](https://github.com/Brigghin/bc-ferry-data-platform/issues/31))
+
+### Features
+
+* address release please issues ([#31](https://github.com/Brigghin/bc-ferry-data-platform/issues/31)) ([1afab3c](https://github.com/Brigghin/bc-ferry-data-platform/commit/1afab3c0de4b46df0ccb7e247d402e44bacaa975))
+
 ## [0.5.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.4.1...v0.5.0) (2026-09-28)
 
 
