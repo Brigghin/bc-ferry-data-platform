@@ -61,5 +61,3 @@ The `departed` value is calculated using the server's current time. Times are re
 ## Data source
 
 Each request fetches current non-capacity sailing data from the [BC Ferries API](https://www.bcferriesapi.ca/v2/noncapacity/). This service does not currently store or cache the data, so the endpoint depends on the upstream API being available.
-
-
