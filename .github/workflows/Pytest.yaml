@@ -30,15 +30,14 @@ jobs:
 
       - name: Run Pytest
         working-directory: backend
-        run: uv run pytest --cov=bc_ferry_data_platform
+        run: |
+          uv run pytest --cov=bc_ferry_data_platform | tee pytest-results.txt
 
-      - name: Comment Results
-        uses: actions/github-script@v5.0.0
-        with:
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '👋 Thanks for reporting!'
-            })
+      - name: Publish Results
+        if: always()
+        working-directory: backend
+        run: |
+          echo "## Pytest Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat pytest-results.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
