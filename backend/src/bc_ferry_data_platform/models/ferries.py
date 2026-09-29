@@ -5,13 +5,19 @@ from pydantic import BaseModel
 
 class FerryRoute(BaseModel):
     """Represents a ferry route with its scheduled departures."""
+    routeCode: str
     source: str
     destination: str
-    ferries: list[FerriesTiming]
+    duration: str
+    ferries: list[FerryInfo]
 
 
-class FerriesTiming(BaseModel):
-    """Represents the timing information for a ferry departure."""
-    departed: bool
-    departure_time: str
-    arrival_time: str
+class FerryInfo(BaseModel):
+    """Represents the information for a specific ferry departure."""
+    departureTime: str
+    arrivalTime: str
+    status: str
+    vessel: str
+    fill: int
+    carFill: int
+    oversizeFill: int
