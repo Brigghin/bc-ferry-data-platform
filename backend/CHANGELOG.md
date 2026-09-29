@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.0.0...v2.1.0) (2026-09-29)
+
+
+### Features
+
+* add api testing pytest ([#41](https://github.com/Brigghin/bc-ferry-data-platform/issues/41)) ([04d7490](https://github.com/Brigghin/bc-ferry-data-platform/commit/04d7490699106e2c81c246e7fcc8c098b52bbd22))
+
 ## [2.0.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v1.0.0...v2.0.0) (2026-09-29)
 
 
