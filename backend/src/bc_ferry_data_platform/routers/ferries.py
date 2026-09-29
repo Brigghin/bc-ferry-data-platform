@@ -12,6 +12,6 @@ router = APIRouter(prefix="/ferries")
 
 
 @router.get("/", response_model=list[FerryRoute])
-async def list_ferries() -> list[FerryRoute]:
+async def list_ferries(route_code: str | None = None,) -> list[FerryRoute]:
     """Return ferry routes and their scheduled sailings."""
-    return await fetch_ferries()
+    return await fetch_ferries(route_code)
