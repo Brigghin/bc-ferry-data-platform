@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.0.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v1.0.0...v2.0.0) (2026-09-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* address release please issues ([#31](https://github.com/Brigghin/bc-ferry-data-platform/issues/31))
+
+### Features
+
+* Add docker build push workflow ([1e53941](https://github.com/Brigghin/bc-ferry-data-platform/commit/1e5394175e7ba766fac7fba0f04d7fd5cccfed7a))
+* Add version endpoint and update documentation ([c497fb3](https://github.com/Brigghin/bc-ferry-data-platform/commit/c497fb39aec85a6305720eac05b5567c268b3009))
+* Add version endpoint and update documentation ([ee35e51](https://github.com/Brigghin/bc-ferry-data-platform/commit/ee35e51d3ea994579752d195f70f8bc82febba06))
+* added a new pylint workflow and added required dependencies to project ([7bc9041](https://github.com/Brigghin/bc-ferry-data-platform/commit/7bc90415da34da2e934f580cd7a7f079f1b2467d))
+* address release please issues ([#31](https://github.com/Brigghin/bc-ferry-data-platform/issues/31)) ([1afab3c](https://github.com/Brigghin/bc-ferry-data-platform/commit/1afab3c0de4b46df0ccb7e247d402e44bacaa975))
+
+
+### Bug Fixes
+
+* test release please ([#34](https://github.com/Brigghin/bc-ferry-data-platform/issues/34)) ([5402ce3](https://github.com/Brigghin/bc-ferry-data-platform/commit/5402ce361ebfa914df6ebf5ade7ee6221151e9f9))
+* update version to 0.4.0 in uv.lock and fix jsonpath in release-please config ([5b01fab](https://github.com/Brigghin/bc-ferry-data-platform/commit/5b01faba026d3af661f08590985849e844c87de2))
+
+## [1.0.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.5.0...v1.0.0) (2026-09-29)
+
+
+### ⚠ BREAKING CHANGES
+
+* address release please issues ([#31](https://github.com/Brigghin/bc-ferry-data-platform/issues/31))
+
+### Features
+
+* address release please issues ([#31](https://github.com/Brigghin/bc-ferry-data-platform/issues/31)) ([1afab3c](https://github.com/Brigghin/bc-ferry-data-platform/commit/1afab3c0de4b46df0ccb7e247d402e44bacaa975))
+
 ## [0.5.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v0.4.1...v0.5.0) (2026-09-28)
 
 
