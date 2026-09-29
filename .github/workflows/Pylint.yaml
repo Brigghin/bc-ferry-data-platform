@@ -30,4 +30,13 @@ jobs:
 
       - name: Run Pylint
         working-directory: backend
-        run: uv run --locked pylint -f actions src
+        run: uv run --locked pylint -f actions src | tee pylint-results.txt
+
+      - name: Publish Results
+        if: always()
+        working-directory: backend
+        run: |
+          echo "## Pylint Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat pylint-results.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
