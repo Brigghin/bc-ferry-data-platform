@@ -1,0 +1,33 @@
+name: Pytest
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  run-pytest:
+    name: Run Pytest
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@v7.0.0
+        with:
+          python-version-file: backend/.python-version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Sync project and lint dependencies
+        working-directory: backend
+        run: uv sync --locked
+
+      - name: Run Pytest
+        working-directory: backend
+        run: uv run pytest --cov=bc_ferry_data_platform

@@ -9,8 +9,26 @@ from ..models.ferries import FerryRoute, FerryInfo
 
 BASE_URL = "https://www.bcferriesapi.ca/v2/"
 
+def ferry_info_status_helper(departure_time: time, arrival_time: time, current_time: time) -> str:
+    """Find the status info for the ferry_info object."""
+    status = "unknown"
+    #Compare the time objects to set sailing status
+    if not arrival_time and departure_time:
+        status = "future"
+    elif not arrival_time and not departure_time:
+        status = "unknown"
+    elif arrival_time and not departure_time:
+        status = "unknown"
+    elif arrival_time >= current_time:
+        status = "current"
+    elif arrival_time < current_time:
+        status = "past"
+
+
+    return status
+
 def ferry_info_time_helper(sailing: dict[str, str]) -> tuple[str, str, str]:
-    """Find the time and status info for the ferry_info object."""
+    """Parse the time info for the ferry_info object."""
     departure_time = ""
     arrival_time = ""
     #Create regex for matching the time format from the API
@@ -38,14 +56,7 @@ def ferry_info_time_helper(sailing: dict[str, str]) -> tuple[str, str, str]:
 
     now = datetime.now()
     current_time = time(hour=now.hour, minute=now.minute).strftime("%H:%M")
-
-    #Compare the time objects to set sailing status
-    if not arrival_time:
-        status = "future"
-    elif arrival_time > current_time:
-        status = "current"
-    else:
-        status = "past"
+    status = ferry_info_status_helper(departure_time, arrival_time, current_time)
 
     if departure_time:
         departure_time = departure_time[1:] if departure_time[0] == "0" else departure_time
@@ -90,9 +101,9 @@ async def fetch_ferries(route_code: str | None) -> list[FerryRoute]:
         results: list[FerryRoute] = []
         for route in data["capacityRoutes"]:
             parsed_route = FerryRoute(
-                routeCode=route["routeCode"],
-                source=route["fromTerminalCode"],
-                destination=route["toTerminalCode"],
+                routeCode=route["routeCode"].upper(),
+                source=route["fromTerminalCode"].upper(),
+                destination=route["toTerminalCode"].upper(),
                 duration=route["sailingDuration"],
                 ferries=ferry_info_parse(route["sailings"])
             )
