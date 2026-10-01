@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "fastapi[standard]>=0.141.1",
     "httpx>=0.28.1",
+    "psycopg2-binary>=2.9.13",
     "pydantic>=2.13.5",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
@@ -27,6 +28,12 @@ entrypoint = "bc_ferry_data_platform.main:app"
 load-plugins = ["pylint_actions"]
 
 [dependency-groups]
+test = [
+    "pytest>=9.1.1",
+    "pytest-cov>=7.1.0",
+    "respx>=0.23.1",
+]
+
 dev = [
     "pylint>=4.0.9",
     "pylint-actions>=0.7.0",
