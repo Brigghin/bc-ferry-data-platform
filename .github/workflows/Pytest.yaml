@@ -26,7 +26,7 @@ jobs:
 
       - name: Sync project and lint dependencies
         working-directory: backend
-        run: uv sync --locked
+        run: uv sync --locked --group test
 
       - name: Run Pytest
         working-directory: backend
