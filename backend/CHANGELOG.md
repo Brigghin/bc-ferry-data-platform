@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.2.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.1.0...v2.2.0) (2026-10-09)
+
+
+### Features
+
+* setup postgre sql foundation ([#54](https://github.com/Brigghin/bc-ferry-data-platform/issues/54)) ([8a9b859](https://github.com/Brigghin/bc-ferry-data-platform/commit/8a9b859802e530abbe5db592d06c207706fcb051))
+* update uv organization ([#51](https://github.com/Brigghin/bc-ferry-data-platform/issues/51)) ([dafa9df](https://github.com/Brigghin/bc-ferry-data-platform/commit/dafa9df04c61087052a99058e05a2552ae52736a))
+
 ## [2.1.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.0.0...v2.1.0) (2026-09-29)
 
 
