@@ -5,7 +5,7 @@ import re
 import httpx
 
 
-from ..models.ferries import FerryRoute, FerryInfo
+from ..schemas.ferries import FerryRoute, FerryInfo
 
 BASE_URL = "https://www.bcferriesapi.ca/v2/"
 
