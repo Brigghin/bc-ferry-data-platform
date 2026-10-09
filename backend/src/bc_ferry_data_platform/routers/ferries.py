@@ -3,7 +3,7 @@
 
 from fastapi import APIRouter
 
-from ..models.ferries import FerryRoute
+from ..schemas.ferries import FerryRoute
 from ..services.ferries import fetch_ferries
 
 BASE_URL = "https://www.bcferriesapi.ca/v2"
