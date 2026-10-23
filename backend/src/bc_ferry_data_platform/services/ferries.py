@@ -1,13 +1,28 @@
 """Fetch and transform BC Ferries sailing data for the API."""
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session, selectinload
 from datetime import datetime, time
 import re
 import httpx
+from ..models.route import Route
+from ..models.sailing import Sailing
+from ..repositories.route import add_sailing_history
+from ..repositories.route import get_or_add_route
 
 
 from ..schemas.ferries import FerryRoute, FerryInfo
 
+
+
 BASE_URL = "https://www.bcferriesapi.ca/v2/"
+
+
+def normalize_route_code(route_code: str | None) -> str | None:
+    if route_code is None:
+        return None
+    return route_code.replace("-", "").strip().upper()
+
 
 def ferry_info_status_helper(departure_time: time, arrival_time: time, current_time: time) -> str:
     """Find the status info for the ferry_info object."""
@@ -91,8 +106,9 @@ def ferry_info_parse(sailing_list: list[dict[str, str]]) -> list[FerryInfo]:
 
     return ferry_info_list
 
-async def fetch_ferries(route_code: str | None) -> list[FerryRoute]:
+async def fetch_api_ferries(route_code: str | None) -> list[FerryRoute]:
     """Fetch ferry routes and map their sailings to response models."""
+    requested_route_code = normalize_route_code(route_code)
     async with httpx.AsyncClient() as client:
         response = await client.get(f"{BASE_URL}")
         response.raise_for_status()
@@ -100,13 +116,58 @@ async def fetch_ferries(route_code: str | None) -> list[FerryRoute]:
 
         results: list[FerryRoute] = []
         for route in data["capacityRoutes"]:
+            normalized_route_code = normalize_route_code(route["routeCode"])
             parsed_route = FerryRoute(
-                routeCode=route["routeCode"].upper(),
+                routeCode=normalized_route_code,
                 source=route["fromTerminalCode"].upper(),
                 destination=route["toTerminalCode"].upper(),
                 duration=route["sailingDuration"],
                 ferries=ferry_info_parse(route["sailings"])
             )
-            if parsed_route.routeCode == route_code or route_code is None:
+            if parsed_route.routeCode == requested_route_code or requested_route_code is None:
                 results.append(parsed_route)
     return results
+
+async def upload_ferries(session: Session, route_code: str | None = None) -> int:
+    """Upload ferries to the database"""
+    api_routes = await fetch_api_ferries(route_code)
+
+    for api_route in api_routes:
+        route = Route(
+            routeCode=api_route.routeCode,
+            source=api_route.source,
+            destination=api_route.destination,
+            duration=api_route.duration,
+        )
+        stored_route = get_or_add_route(session, route)
+        sailing_snapshot = [
+            Sailing(
+                departureTime=ferry.departureTime,
+                arrivalTime=ferry.arrivalTime,
+                status=ferry.status,
+                vessel=ferry.vessel,
+                fill=ferry.fill,
+                carFill=ferry.carFill,
+                oversizeFill=ferry.oversizeFill,
+            )
+            for ferry in api_route.ferries
+        ]
+        add_sailing_history(session, stored_route.routeCode, sailing_snapshot)
+
+    try:
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    return len(api_routes)
+
+def fetch_storage_ferries(session: Session, route_code: str | None) -> list[FerryRoute]:
+    """Fetch ferry routes + sailings from the database"""
+    statement = select(Route).options(selectinload(Route.ferries))
+    if route_code is not None:
+        statement = statement.where(
+            Route.routeCode == normalize_route_code(route_code)
+        )
+
+    routes = session.scalars(statement).all()
+    return [FerryRoute.model_validate(route) for route in routes]

@@ -5,7 +5,7 @@ import respx
 import httpx
 
 from bc_ferry_data_platform.services.ferries import (ferry_info_parse, ferry_info_status_helper,
-ferry_info_time_helper, fetch_ferries)
+ferry_info_time_helper, fetch_api_ferries)
 
 BASE_URL = "https://www.bcferriesapi.ca/v2/"
 
@@ -298,26 +298,26 @@ async def test_fetch_ferries():
         )
     )
 
-    result = await fetch_ferries(None)
+    result = await fetch_api_ferries(None)
 
     assert len(result) == 4
 
-    assert result[0].routeCode == "TSA-SWB"
+    assert result[0].routeCode == "TSASWB"
     assert result[0].source == "TSA"
     assert result[0].destination == "SWB"
     assert result[0].duration == "1h 35m"
 
-    assert result[1].routeCode == "HSB-NAN"
+    assert result[1].routeCode == "HSBNAN"
     assert result[1].source == "HSB"
     assert result[1].destination == "NAN"
     assert result[1].duration == "1h 40m"
 
-    assert result[2].routeCode == "TSA-SWB"
+    assert result[2].routeCode == "TSASWB"
     assert result[2].source == "TSA"
     assert result[2].destination == "SWB"
     assert result[2].duration == "1h 35m"
 
-    assert result[3].routeCode == "HSB-NAN"
+    assert result[3].routeCode == "HSBNAN"
     assert result[3].source == "HSB"
     assert result[3].destination == "NAN"
     assert result[3].duration == ""

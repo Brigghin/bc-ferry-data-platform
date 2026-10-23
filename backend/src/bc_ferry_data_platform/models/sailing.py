@@ -1,9 +1,12 @@
 """Defines models for ferry sailings in PostgreSQL."""
 
 from typing import TYPE_CHECKING
+from datetime import datetime
 
 from sqlalchemy import String
 from sqlalchemy import Integer
+from sqlalchemy import DateTime
+from sqlalchemy import text
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy import ForeignKey
@@ -19,13 +22,21 @@ class Sailing(Base):
     __tablename__ = "sailings"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    route_code: Mapped[str] = mapped_column(String(6), ForeignKey("routes.route_code"))
-    departure_time: Mapped[str] = mapped_column(String)
-    arrival_time: Mapped[str] = mapped_column(String)
+    routeCode: Mapped[str] = mapped_column(
+        "route_code", String(6), ForeignKey("routes.route_code")
+    )
+    departureTime: Mapped[str] = mapped_column("departure_time", String)
+    arrivalTime: Mapped[str] = mapped_column("arrival_time", String)
     status: Mapped[str] = mapped_column(String)
     vessel: Mapped[str] = mapped_column(String)
     fill: Mapped[int] = mapped_column(Integer)
-    car_fill: Mapped[int] = mapped_column(Integer)
-    oversize_fill: Mapped[int] = mapped_column(Integer)
+    carFill: Mapped[int] = mapped_column("car_fill", Integer)
+    oversizeFill: Mapped[int] = mapped_column("oversize_fill", Integer)
+    capturedAt: Mapped[datetime] = mapped_column(
+        "captured_at",
+        DateTime(timezone=True),
+        server_default=text("CURRENT_TIMESTAMP"),
+        nullable=False,
+    )
 
-    route: Mapped["Route"] = relationship(back_populates="sailings")
+    route: Mapped["Route"] = relationship(back_populates="ferries")

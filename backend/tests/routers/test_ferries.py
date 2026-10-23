@@ -1,12 +1,15 @@
 '''Test files for the routers/ferries file'''
 from fastapi.testclient import TestClient
 from bc_ferry_data_platform.main import app
+from bc_ferry_data_platform.database.dependencies import get_session
+from bc_ferry_data_platform.schemas.ferries import FerryRoute
 
 client = TestClient(app)
 
 def test_fetch_ferries(monkeypatch):
     '''Test the fetch_ferries function'''
-    async def mock_fetch_ferries(route_code):
+    def mock_fetch_storage_ferries(_session, route_code):
+        assert _session is None
         ferries = [
             {
                 "routeCode": "TSASWB",
@@ -24,17 +27,23 @@ def test_fetch_ferries(monkeypatch):
             }
         ]
         if route_code is None:
-            return ferries
+            selected = ferries
+        else:
+            selected = [
+                route for route in ferries
+                if route["routeCode"] == route_code
+            ]
 
-        return [
-            route for route in ferries
-            if route["routeCode"] == route_code
-        ]
+        return [FerryRoute.model_validate(route) for route in selected]
 
+    def override_get_session():
+        return None
+
+    monkeypatch.setitem(app.dependency_overrides, get_session, override_get_session)
 
     monkeypatch.setattr(
-        "bc_ferry_data_platform.routers.ferries.fetch_ferries",
-        mock_fetch_ferries
+        "bc_ferry_data_platform.routers.ferries.fetch_storage_ferries",
+        mock_fetch_storage_ferries
     )
 
     #Testing getting all entries

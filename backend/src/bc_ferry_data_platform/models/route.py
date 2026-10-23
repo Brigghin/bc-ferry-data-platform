@@ -17,8 +17,11 @@ class Route(Base):
     __tablename__ = "routes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    route_code: Mapped[str] = mapped_column(String(6), unique=True)
+    routeCode: Mapped[str] = mapped_column("route_code", String(6), unique=True)
     source: Mapped[str] = mapped_column(String(3))
     destination: Mapped[str] = mapped_column(String(3))
     duration: Mapped[str] = mapped_column(String)
-    sailings: Mapped[list["Sailing"]] = relationship(back_populates="Sailing")
+    ferries: Mapped[list["Sailing"]] = relationship(
+        back_populates="route",
+        cascade="all, delete-orphan",
+    )
