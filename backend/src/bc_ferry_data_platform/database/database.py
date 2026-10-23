@@ -1,3 +1,4 @@
+
 """File to establish the session for SQLAlchemy."""
 
 from sqlalchemy import create_engine
