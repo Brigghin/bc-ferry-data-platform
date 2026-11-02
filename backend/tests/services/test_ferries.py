@@ -3,11 +3,39 @@
 import pytest
 import respx
 import httpx
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
 
 from bc_ferry_data_platform.services.ferries import (ferry_info_parse, ferry_info_status_helper,
 ferry_info_time_helper, fetch_api_ferries)
+from bc_ferry_data_platform.services.ferries import infer_sailing_date
 
 BASE_URL = "https://www.bcferriesapi.ca/v2/"
+BC_TIMEZONE = ZoneInfo("America/Vancouver")
+
+
+def test_infer_sailing_date_rolls_future_departure_to_tomorrow():
+    observed_at = datetime(2026, 11, 2, 23, 45, tzinfo=BC_TIMEZONE)
+
+    result = infer_sailing_date("0:30", "future", observed_at)
+
+    assert result == date(2026, 11, 3)
+
+
+def test_infer_sailing_date_keeps_upcoming_departure_today():
+    observed_at = datetime(2026, 11, 3, 0, 10, tzinfo=BC_TIMEZONE)
+
+    result = infer_sailing_date("0:30", "future", observed_at)
+
+    assert result == date(2026, 11, 3)
+
+
+def test_infer_sailing_date_does_not_roll_past_departure_forward():
+    observed_at = datetime(2026, 11, 3, 10, 0, tzinfo=BC_TIMEZONE)
+
+    result = infer_sailing_date("9:00", "past", observed_at)
+
+    assert result == date(2026, 11, 3)
 
 
 def test_time_helper():

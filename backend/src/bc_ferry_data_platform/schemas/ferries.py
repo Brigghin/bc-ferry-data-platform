@@ -1,5 +1,6 @@
 """Define response models for ferry routes and sailing times."""
 
+from datetime import date
 from datetime import datetime
 
 from pydantic import BaseModel
@@ -28,4 +29,5 @@ class FerryInfo(BaseModel):
     fill: int
     carFill: int
     oversizeFill: int
+    sailingDate: date
     capturedAt: datetime | None = None

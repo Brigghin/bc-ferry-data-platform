@@ -1,11 +1,11 @@
 import pytest
+from datetime import date
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from bc_ferry_data_platform.models.base import Base
 from bc_ferry_data_platform.models.route import Route
 from bc_ferry_data_platform.models.sailing import Sailing
-from bc_ferry_data_platform.repositories.route import add_route
 from bc_ferry_data_platform.repositories.route import add_sailing_history
 from bc_ferry_data_platform.repositories.route import get_or_add_route
 from bc_ferry_data_platform.repositories.route import get_by_code
@@ -38,11 +38,12 @@ def test_add_and_get_route_with_sailings(session: Session) -> None:
                 fill=25,
                 carFill=30,
                 oversizeFill=10,
+                sailingDate=date(2026, 11, 2),
             )
         ],
     )
 
-    add_route(session, route)
+    get_or_add_route(session, route)
     session.commit()
     session.expunge_all()
 
@@ -79,6 +80,7 @@ def test_two_refreshes_keep_sailing_history(session: Session) -> None:
                 fill=25,
                 carFill=30,
                 oversizeFill=10,
+                sailingDate=date(2026, 11, 2),
             ),
         ],
     )
@@ -106,6 +108,7 @@ def test_two_refreshes_keep_sailing_history(session: Session) -> None:
                 fill=20,
                 carFill=25,
                 oversizeFill=5,
+                sailingDate=date(2026, 11, 3),
             ),
         ],
     )

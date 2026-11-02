@@ -2,9 +2,11 @@
 
 from typing import TYPE_CHECKING
 from datetime import datetime
+from datetime import date
 
 from sqlalchemy import String
 from sqlalchemy import Integer
+from sqlalchemy import Date
 from sqlalchemy import DateTime
 from sqlalchemy import text
 from sqlalchemy.orm import Mapped
@@ -32,6 +34,7 @@ class Sailing(Base):
     fill: Mapped[int] = mapped_column(Integer)
     carFill: Mapped[int] = mapped_column("car_fill", Integer)
     oversizeFill: Mapped[int] = mapped_column("oversize_fill", Integer)
+    sailingDate: Mapped[date] = mapped_column("sailing_date", Date, nullable=False)
     capturedAt: Mapped[datetime] = mapped_column(
         "captured_at",
         DateTime(timezone=True),
