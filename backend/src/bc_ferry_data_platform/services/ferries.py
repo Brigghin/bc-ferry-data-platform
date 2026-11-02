@@ -3,8 +3,10 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 from datetime import datetime, time
+from datetime import date, timedelta
 import re
 import httpx
+from zoneinfo import ZoneInfo
 from ..models.route import Route
 from ..models.sailing import Sailing
 from ..repositories.route import add_sailing_history
@@ -16,6 +18,7 @@ from ..schemas.ferries import FerryRoute, FerryInfo
 
 
 BASE_URL = "https://www.bcferriesapi.ca/v2/"
+BC_TIMEZONE = ZoneInfo("America/Vancouver")
 
 
 def normalize_route_code(route_code: str | None) -> str | None:
@@ -24,7 +27,7 @@ def normalize_route_code(route_code: str | None) -> str | None:
     return route_code.replace("-", "").strip().upper()
 
 
-def ferry_info_status_helper(departure_time: time, arrival_time: time, current_time: time) -> str:
+def ferry_info_status_helper(departure_time: str, arrival_time: str, current_time: str) -> str:
     """Find the status info for the ferry_info object."""
     status = "unknown"
     #Compare the time objects to set sailing status
@@ -42,7 +45,10 @@ def ferry_info_status_helper(departure_time: time, arrival_time: time, current_t
 
     return status
 
-def ferry_info_time_helper(sailing: dict[str, str]) -> tuple[str, str, str]:
+def ferry_info_time_helper(
+    sailing: dict[str, str],
+    observed_at: datetime | None = None,
+) -> tuple[str, str, str]:
     """Parse the time info for the ferry_info object."""
     departure_time = ""
     arrival_time = ""
@@ -69,8 +75,12 @@ def ferry_info_time_helper(sailing: dict[str, str]) -> tuple[str, str, str]:
             else:
                 arrival_time = sailing_time
 
-    now = datetime.now()
-    current_time = time(hour=now.hour, minute=now.minute).strftime("%H:%M")
+    now = observed_at or datetime.now(BC_TIMEZONE)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=BC_TIMEZONE)
+    else:
+        now = now.astimezone(BC_TIMEZONE)
+    current_time = now.strftime("%H:%M")
     status = ferry_info_status_helper(departure_time, arrival_time, current_time)
 
     if departure_time:
@@ -81,11 +91,40 @@ def ferry_info_time_helper(sailing: dict[str, str]) -> tuple[str, str, str]:
 
     return departure_time, arrival_time, status
 
-def ferry_info_parse(sailing_list: list[dict[str, str]]) -> list[FerryInfo]:
+
+def infer_sailing_date(
+    departure_time: str,
+    status: str,
+    observed_at: datetime,
+) -> date:
+    """Infer the sailing day for feeds that provide a time but no date."""
+    if observed_at.tzinfo is None:
+        observed_at = observed_at.replace(tzinfo=BC_TIMEZONE)
+    else:
+        observed_at = observed_at.astimezone(BC_TIMEZONE)
+
+    sailing_date = observed_at.date()
+    if departure_time and status == "future":
+        hour, minute = (int(part) for part in departure_time.split(":"))
+        departure_clock = time(hour=hour, minute=minute)
+        if departure_clock <= observed_at.time().replace(tzinfo=None):
+            sailing_date += timedelta(days=1)
+    return sailing_date
+
+
+def ferry_info_parse(
+    sailing_list: list[dict[str, str]],
+    observed_at: datetime | None = None,
+) -> list[FerryInfo]:
     """Convert upstream sailing-time records to response models."""
+    observed_at = observed_at or datetime.now(BC_TIMEZONE)
     ferry_info_list = []
     for ferry_info in sailing_list:
-        departure_time, arrival_time, status = ferry_info_time_helper(ferry_info)
+        departure_time, arrival_time, status = ferry_info_time_helper(
+            ferry_info,
+            observed_at,
+        )
+        sailing_date = infer_sailing_date(departure_time, status, observed_at)
 
         vessel = ferry_info["vesselName"]
         fill = ferry_info.get("fill", 0)
@@ -99,7 +138,8 @@ def ferry_info_parse(sailing_list: list[dict[str, str]]) -> list[FerryInfo]:
             vessel = vessel,
             fill =  fill,
             carFill = car_fill,
-            oversizeFill = oversize_fill
+            oversizeFill = oversize_fill,
+            sailingDate=sailing_date,
         )
 
         ferry_info_list.append(info_object)
@@ -149,6 +189,7 @@ async def upload_ferries(session: Session, route_code: str | None = None) -> int
                 fill=ferry.fill,
                 carFill=ferry.carFill,
                 oversizeFill=ferry.oversizeFill,
+                sailingDate=ferry.sailingDate,
             )
             for ferry in api_route.ferries
         ]
