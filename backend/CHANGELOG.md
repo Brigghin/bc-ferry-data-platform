@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.3.0...v2.4.0) (2026-11-02)
+
+
+### Features
+
+* add sailing date to ferry models and implement inference logic ([#74](https://github.com/Brigghin/bc-ferry-data-platform/issues/74)) ([b603c6d](https://github.com/Brigghin/bc-ferry-data-platform/commit/b603c6d6e796ada4b8c6017717591cd263298766))
+
 ## [2.3.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.2.0...v2.3.0) (2026-11-02)
 
 
