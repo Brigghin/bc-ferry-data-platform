@@ -146,9 +146,8 @@ def ferry_info_parse(
 
     return ferry_info_list
 
-async def fetch_api_ferries(route_code: str | None) -> list[FerryRoute]:
+async def fetch_api_ferries() -> list[FerryRoute]:
     """Fetch ferry routes and map their sailings to response models."""
-    requested_route_code = normalize_route_code(route_code)
     async with httpx.AsyncClient() as client:
         response = await client.get(f"{BASE_URL}")
         response.raise_for_status()
@@ -164,13 +163,12 @@ async def fetch_api_ferries(route_code: str | None) -> list[FerryRoute]:
                 duration=route["sailingDuration"],
                 ferries=ferry_info_parse(route["sailings"])
             )
-            if parsed_route.routeCode == requested_route_code or requested_route_code is None:
-                results.append(parsed_route)
+            results.append(parsed_route)
     return results
 
-async def upload_ferries(session: Session, route_code: str | None = None) -> int:
+async def upload_ferries(session: Session) -> int:
     """Upload ferries to the database"""
-    api_routes = await fetch_api_ferries(route_code)
+    api_routes = await fetch_api_ferries()
 
     for api_route in api_routes:
         route = Route(

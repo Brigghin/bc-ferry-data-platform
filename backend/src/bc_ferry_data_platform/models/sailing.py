@@ -41,5 +41,4 @@ class Sailing(Base):
         server_default=text("CURRENT_TIMESTAMP"),
         nullable=False,
     )
-
     route: Mapped["Route"] = relationship(back_populates="ferries")

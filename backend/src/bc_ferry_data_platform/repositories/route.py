@@ -30,6 +30,23 @@ def add_sailing_history(
     sailings: list[Sailing],
 ) -> None:
     for sailing in sailings:
-        sailing.routeCode = route_code
-    session.add_all(sailings)
+        statement = select(Sailing).where(Sailing.routeCode == route_code).where(Sailing.departureTime == sailing.departureTime).where(
+            Sailing.sailingDate == sailing.sailingDate)
+        stored_sailing = session.scalar(statement)
+
+        if stored_sailing is None:
+            session.add(sailing)
+            return
+
+        if sailing.arrivalTime:
+            stored_sailing.arrivalTime = sailing.arrivalTime
+
+        if sailing.status != "past" or sailing.carFill != 0:
+            stored_sailing.carFill = sailing.carFill
+
+        if sailing.fill:
+            stored_sailing.fill = sailing.fill
+
+        if sailing.oversizeFill:
+            stored_sailing.oversizeFill = sailing.oversizeFill
 
