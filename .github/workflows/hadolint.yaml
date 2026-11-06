@@ -17,3 +17,13 @@ jobs:
           dockerfile: Dockerfile
           failure-threshold: warning
 
+      - name: Publish Results
+        if: always()
+        working-directory: backend
+        run: |
+          echo "## Hadolint Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat "${{ env.OUTPUT }}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+
