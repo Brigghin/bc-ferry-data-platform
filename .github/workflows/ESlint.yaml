@@ -19,9 +19,11 @@ jobs:
         package-manager-cache: false
 
     - name: Install dependencies
+      working-directory: frontend
       run: npm install
-      
+
     - name: Add lint output to summary
+      working-directory: frontend
       run: |
         echo "## Lint results" >> "$GITHUB_STEP_SUMMARY"
         npm run lint >> "$GITHUB_STEP_SUMMARY" 2>&1
