@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.4.1](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.4.0...v2.4.1) (2026-11-06)
+
+
+### Features
+
+* frontend test ([#88](https://github.com/Brigghin/bc-ferry-data-platform/issues/88)) ([5f1b712](https://github.com/Brigghin/bc-ferry-data-platform/commit/5f1b7122778fc85c4cfb2fc291508dbd4a2abba2))
+
 ## [2.4.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.3.0...v2.4.0) (2026-11-02)
 
 
