@@ -1,0 +1,29 @@
+name: ESlint
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  run-ESlint:
+    name: Lint JavaScript/TypeScript
+    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        package-manager-cache: false
+
+    - name: Install dependencies
+      working-directory: frontend
+      run: npm install
+
+    - name: Add lint output to summary
+      working-directory: frontend
+      run: |
+        echo "## Lint results" >> "$GITHUB_STEP_SUMMARY"
+        npm run lint >> "$GITHUB_STEP_SUMMARY" 2>&1
