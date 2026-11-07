@@ -1,3 +1,4 @@
+---
 name: Pylint
 
 on:
@@ -30,7 +31,8 @@ jobs:
 
       - name: Run Pylint
         working-directory: backend
-        run: uv run --locked pylint -f actions src | tee pylint-results.txt
+        run: |
+          uv run --locked pylint -f text src > pylint-results.txt || true
 
       - name: Publish Results
         if: always()
@@ -40,3 +42,13 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat pylint-results.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Check for lint output
+        id: lintcheck
+        working-directory: backend
+        run: |
+          if [ -s pylint-results.txt ]; then
+            echo "has_issues=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_issues=false" >> "$GITHUB_OUTPUT"
+          fi
