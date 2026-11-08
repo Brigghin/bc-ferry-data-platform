@@ -1,14 +1,17 @@
 '''Test files for the services/ferries file'''
 
-import pytest
-import respx
-import httpx
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from bc_ferry_data_platform.services.ferries import (ferry_info_parse, ferry_info_status_helper,
-ferry_info_time_helper, fetch_api_ferries)
-from bc_ferry_data_platform.services.ferries import infer_sailing_date
+import httpx
+import pytest
+import respx
+
+from bc_ferry_data_platform.services.ferries import (ferry_info_parse,
+                                                     ferry_info_status_helper,
+                                                     ferry_info_time_helper,
+                                                     fetch_api_ferries,
+                                                     infer_sailing_date)
 
 BASE_URL = "https://www.bcferriesapi.ca/v2/"
 BC_TIMEZONE = ZoneInfo("America/Vancouver")
@@ -326,7 +329,7 @@ async def test_fetch_ferries():
         )
     )
 
-    result = await fetch_api_ferries(None)
+    result = await fetch_api_ferries()
 
     assert len(result) == 4
 

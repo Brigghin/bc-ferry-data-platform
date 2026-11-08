@@ -1,7 +1,8 @@
 '''Test files for the routers/ferries file'''
 from fastapi.testclient import TestClient
-from bc_ferry_data_platform.main import app
+
 from bc_ferry_data_platform.database.dependencies import get_session
+from bc_ferry_data_platform.main import app
 from bc_ferry_data_platform.schemas.ferries import FerryRoute
 
 client = TestClient(app)

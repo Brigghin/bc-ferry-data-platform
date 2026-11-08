@@ -2,14 +2,13 @@
 
 from pathlib import Path
 
-from pydantic_settings import BaseSettings
-from pydantic_settings import SettingsConfigDict
-
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BASE_DIR = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
+    """Settings for the application, including database configuration."""
     database_url: str
 
     model_config = SettingsConfigDict(
@@ -18,4 +17,4 @@ class Settings(BaseSettings):
     )
 
 
-settings = Settings()
+settings = Settings() # pyright: ignore[reportCallIssue]  # pylint: disable=no-value-for-parameter

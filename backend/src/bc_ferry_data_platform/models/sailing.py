@@ -1,18 +1,10 @@
 """Defines models for ferry sailings in PostgreSQL."""
 
+from datetime import date, datetime
 from typing import TYPE_CHECKING
-from datetime import datetime
-from datetime import date
 
-from sqlalchemy import String
-from sqlalchemy import Integer
-from sqlalchemy import Date
-from sqlalchemy import DateTime
-from sqlalchemy import text
-from sqlalchemy.orm import Mapped
-from sqlalchemy.orm import mapped_column
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from bc_ferry_data_platform.models.base import Base
 
