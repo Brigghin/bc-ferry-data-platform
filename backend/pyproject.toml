@@ -29,6 +29,12 @@ entrypoint = "bc_ferry_data_platform.main:app"
 
 [tool.pylint.main]
 load-plugins = ["pylint_actions"]
+recursive = true
+ignore = [".venv", "venv", "__pycache__"]
+ignore-paths = ['^\.venv/.*$', '^alembic/.*$']
+
+[tool.pylint.messages_control]
+disable = ["too-few-public-methods"]
 
 [dependency-groups]
 test = [

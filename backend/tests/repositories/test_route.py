@@ -1,14 +1,15 @@
-import pytest
 from datetime import date
+
+import pytest
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from bc_ferry_data_platform.models.base import Base
 from bc_ferry_data_platform.models.route import Route
 from bc_ferry_data_platform.models.sailing import Sailing
-from bc_ferry_data_platform.repositories.route import add_sailing_history
-from bc_ferry_data_platform.repositories.route import get_or_add_route
-from bc_ferry_data_platform.repositories.route import get_by_code
+from bc_ferry_data_platform.repositories.route import (add_sailing_history,
+                                                       get_by_code,
+                                                       get_or_add_route)
 
 
 @pytest.fixture
@@ -31,6 +32,7 @@ def test_add_and_get_route_with_sailings(session: Session) -> None:
         duration="1h 35m",
         ferries=[
             Sailing(
+                routeCode="TSASWB",
                 departureTime="08:00",
                 arrivalTime="09:35",
                 status="future",

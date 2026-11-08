@@ -1,8 +1,8 @@
 """Create the FastAPI app and register its routers."""
 
 from fastapi import FastAPI
-from .routers import ferries
-from .routers import version
+
+from .routers import ferries, version
 
 app = FastAPI()
 

@@ -1,16 +1,13 @@
-
 """Expose API routes for ferry schedule data."""
 
-from fastapi import APIRouter
-from fastapi import Depends
 from typing import Annotated
+
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from ..database.dependencies import get_session
-
 from ..schemas.ferries import FerryRoute
-from ..services.ferries import fetch_storage_ferries
-from ..services.ferries import upload_ferries
+from ..services.ferries import fetch_storage_ferries, upload_ferries
 
 router = APIRouter(prefix="/ferries")
 

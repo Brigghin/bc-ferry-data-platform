@@ -1,29 +1,24 @@
 """Fetch and transform BC Ferries sailing data for the API."""
 
+import re
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
+import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
-from datetime import datetime, time
-from datetime import date, timedelta
-import re
-import httpx
-from zoneinfo import ZoneInfo
+
 from ..models.route import Route
 from ..models.sailing import Sailing
-from ..repositories.route import add_sailing_history
-from ..repositories.route import get_or_add_route
-
-
-from ..schemas.ferries import FerryRoute, FerryInfo
-
-
+from ..repositories.route import add_sailing_history, get_or_add_route
+from ..schemas.ferries import FerryInfo, FerryRoute
 
 BASE_URL = "https://www.bcferriesapi.ca/v2/"
 BC_TIMEZONE = ZoneInfo("America/Vancouver")
 
 
-def normalize_route_code(route_code: str | None) -> str | None:
-    if route_code is None:
-        return None
+def normalize_route_code(route_code: str) -> str:
+    """Normalize the route code to remove the -"""
     return route_code.replace("-", "").strip().upper()
 
 
@@ -41,8 +36,6 @@ def ferry_info_status_helper(departure_time: str, arrival_time: str, current_tim
         status = "current"
     elif arrival_time < current_time:
         status = "past"
-
-
     return status
 
 def ferry_info_time_helper(
@@ -127,9 +120,9 @@ def ferry_info_parse(
         sailing_date = infer_sailing_date(departure_time, status, observed_at)
 
         vessel = ferry_info["vesselName"]
-        fill = ferry_info.get("fill", 0)
-        car_fill = ferry_info.get("carFill", 0)
-        oversize_fill =  ferry_info.get("oversizeFill", 0)
+        fill = int(ferry_info.get("fill") or 0)
+        car_fill = int(ferry_info.get("carFill") or 0)
+        oversize_fill = int(ferry_info.get("oversizeFill") or 0)
 
         info_object = FerryInfo(
             departureTime = departure_time,
@@ -180,6 +173,7 @@ async def upload_ferries(session: Session) -> int:
         stored_route = get_or_add_route(session, route)
         sailing_snapshot = [
             Sailing(
+                routeCode=stored_route.routeCode,
                 departureTime=ferry.departureTime,
                 arrivalTime=ferry.arrivalTime,
                 status=ferry.status,
@@ -202,7 +196,8 @@ async def upload_ferries(session: Session) -> int:
 
 def fetch_storage_ferries(session: Session, route_code: str | None) -> list[FerryRoute]:
     """Fetch ferry routes + sailings from the database"""
-    statement = select(Route).options(selectinload(Route.ferries))
+    today = date.today()
+    statement = select(Route).options(selectinload(Route.ferries.and_(Sailing.sailingDate >= today)))
     if route_code is not None:
         statement = statement.where(
             Route.routeCode == normalize_route_code(route_code)
