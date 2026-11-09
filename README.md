@@ -1,4 +1,4 @@
-# BC Ferry Data Platform
+# BC Ferry Data Platform (WIP)
 
 This is a learning project for exploring Python API development with FastAPI, dependency management with uv, Docker, and release automation. The backend currently retrieves and serves BC Ferries sailing schedules from the BC Ferries API.
 
