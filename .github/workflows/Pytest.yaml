@@ -1,14 +1,11 @@
 name: Pytest
 
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_call:
 
 jobs:
   run-pytest:
     name: Run Pytest
-    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
@@ -30,8 +27,11 @@ jobs:
 
       - name: Run Pytest
         working-directory: backend
+        env:
+          DATABASE_URL: "sqlite://"
         run: |
-          uv run pytest --cov=bc_ferry_data_platform | tee pytest-results.txt
+          set -o pipefail
+          uv run pytest --cov=bc_ferry_data_platform 2>&1 | tee pytest-results.txt
 
       - name: Publish Results
         if: always()
@@ -39,5 +39,14 @@ jobs:
         run: |
           echo "## Pytest Results" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat pytest-results.txt >> $GITHUB_STEP_SUMMARY
+          if [ -f pytest-results.txt ]; then cat pytest-results.txt >> $GITHUB_STEP_SUMMARY; fi
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Save output for PR summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-pytest
+          path: backend/pytest-results.txt
+          if-no-files-found: warn
+          retention-days: 7
