@@ -6,17 +6,17 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from ..database.dependencies import get_session
-from ..schemas.ferries import FerryRoute
+from ..schemas.ferries import Route as RouteSchema
 from ..services.ferries import fetch_storage_ferries, upload_ferries
 
 router = APIRouter(prefix="/ferries")
 
 
-@router.get("/", response_model=list[FerryRoute])
+@router.get("/", response_model=list[RouteSchema])
 def list_ferries(
     session: Annotated[Session, Depends(get_session)],
     route_code: str | None = None,
-) -> list[FerryRoute]:
+) -> list[RouteSchema]:
     """Return ferry routes and their scheduled sailings."""
     return fetch_storage_ferries(session, route_code)
 

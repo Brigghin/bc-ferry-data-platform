@@ -43,7 +43,7 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['route_code'], ['routes.route_code'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.drop_table('terminals')
+    op.drop_table('terminals', if_exists=True)
     # ### end Alembic commands ###
 
 
