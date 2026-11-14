@@ -1,0 +1,90 @@
+name: CI PR summary
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+permissions:
+  actions: read
+  pull-requests: write
+
+jobs:
+  comment:
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download check outputs
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          pattern: ci-*
+          path: ci-output
+          merge-multiple: true
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Post results to matching pull request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const run = context.payload.workflow_run;
+            const { owner, repo } = context.repo;
+            const headRepo = run.head_repository;
+            if (!headRepo || !run.head_branch) {
+              core.setFailed('CI run has no head repository or branch.');
+              return;
+            }
+            const pulls = await github.paginate(github.rest.pulls.list, {
+              owner, repo, state: 'all', base: 'main',
+              head: `${headRepo.owner.login}:${run.head_branch}`,
+              per_page: 100,
+            });
+            const matching = pulls.filter(pr =>
+              pr.head.sha === run.head_sha && pr.head.repo &&
+              pr.head.repo.full_name === headRepo.full_name
+            );
+            if (matching.length !== 1) {
+              core.warning(`Found ${matching.length} PRs matching this run; no comment posted.`);
+              return;
+            }
+            const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRunAttempt, {
+              owner, repo, run_id: run.id, attempt_number: run.run_attempt, per_page: 100,
+            });
+            const checks = [
+              ['Pytest', 'pytest-results.txt'],
+              ['Pylint', 'pylint-results.txt'],
+              ['ESLint', 'eslint-results.txt'],
+              ['Hadolint', 'hadolint.txt'],
+            ];
+            const escape = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const lines = [
+              '<!-- ci-summary -->',
+              `## CI results for ${run.head_sha.slice(0, 7)}`,
+              `Overall: **${run.conclusion || 'unknown'}**. [Full workflow logs](${run.html_url})`,
+              '',
+            ];
+            for (const [name, file] of checks) {
+              const job = jobs.find(item => item.name.startsWith(`${name} / `));
+              const status = job ? (job.conclusion || job.status) : 'not run';
+              const filePath = path.join('ci-output', file);
+              let output = 'No check output available; see the full workflow logs for setup failures or skipped jobs.';
+              if (fs.existsSync(filePath)) {
+                const size = fs.statSync(filePath).size;
+                const buffer = Buffer.alloc(Math.min(size, 4000));
+                const fd = fs.openSync(filePath, 'r');
+                try {
+                  fs.readSync(fd, buffer, 0, buffer.length, Math.max(0, size - buffer.length));
+                } finally {
+                  fs.closeSync(fd);
+                }
+                const text = buffer.toString('utf8');
+                output = size > 4000 ? `Output truncated; showing the last 4000 bytes.\n${text}` : (text || 'No output.');
+              }
+              lines.push(`### ${name}: ${status}`, '<details><summary>Output</summary>', '', `<pre>${escape(output)}</pre>`, '</details>', '');
+            }
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: matching[0].number, body: lines.join('\n'),
+            });
