@@ -1,6 +1,6 @@
 [project]
 name = "bc-ferry-data-platform"
-version = "2.4.1"
+version = "2.5.0"
 description = "A FastAPI service for retrieving and serving BC Ferries sailing schedules."
 readme = "README.md"
 requires-python = ">=3.11"

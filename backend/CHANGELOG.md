@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.5.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.4.1...v2.5.0) (2026-11-14)
+
+
+### Features
+
+* add update workflows ([#97](https://github.com/Brigghin/bc-ferry-data-platform/issues/97)) ([366274a](https://github.com/Brigghin/bc-ferry-data-platform/commit/366274a464d11555c9a6f1e63333dd57c24dbb54))
+
+
+### Bug Fixes
+
+* address pylint pytest errors ([#99](https://github.com/Brigghin/bc-ferry-data-platform/issues/99)) ([ae6add2](https://github.com/Brigghin/bc-ferry-data-platform/commit/ae6add2b098672879e2d1bffdaea82ede4d4d2e5))
+
 ## [2.4.1](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.4.0...v2.4.1) (2026-11-06)
 
 

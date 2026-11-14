@@ -2,11 +2,9 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
 
-permissions:
-  contents: write
-  issues: write
-  pull-requests: write
+permissions: {}
 
 name: release-please
 
@@ -14,8 +12,42 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
+      - name: Create GitHub App token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_PLEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_PLEASE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-issues: write
+          permission-pull-requests: write
+
       - uses: googleapis/release-please-action@v5
+        id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
+
+      - name: Enable release PR auto-merge
+        if: steps.release.outputs.prs_created == 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_PRS: ${{ steps.release.outputs.prs }}
+        run: |
+          numbers=$(jq -er '
+            if type == "array" and length > 0
+              and all(.[]; (.number | type) == "number" and .number > 0 and (.number | floor) == .number)
+            then .[].number
+            else error("Invalid Release Please pull request output")
+            end
+          ' <<< "$RELEASE_PRS")
+          while IFS= read -r number; do
+            auto_merge=$(gh pr view "$number" --json autoMergeRequest --jq '.autoMergeRequest != null')
+            if [ "$auto_merge" = true ]; then
+              echo "Auto-merge is already enabled for PR #$number."
+            else
+              gh pr merge "$number" --auto --squash
+            fi
+          done <<< "$numbers"
