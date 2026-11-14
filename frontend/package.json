@@ -24,8 +24,8 @@
     "globals": "^17.14.0",
     "jiti": "^2.7.0",
     "oxlint": "^1.92.0",
-    "typescript": "^5.8.3",
-    "typescript-eslint": "^8.36.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.2",
     "vite": "^8.3.6"
   }
 }
