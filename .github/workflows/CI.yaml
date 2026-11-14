@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  pytest:
+    name: Pytest
+    uses: ./.github/workflows/Pytest.yaml
+  pylint:
+    name: Pylint
+    uses: ./.github/workflows/Pylint.yaml
+  eslint:
+    name: ESLint
+    uses: ./.github/workflows/ESlint.yaml
+  hadolint:
+    name: Hadolint
+    uses: ./.github/workflows/hadolint.yaml
+  result:
+    name: CI result
+    runs-on: ubuntu-latest
+    if: always()
+    needs: [pytest, pylint, eslint, hadolint]
+    env:
+      PYTEST_RESULT: ${{ needs.pytest.result }}
+      PYLINT_RESULT: ${{ needs.pylint.result }}
+      ESLINT_RESULT: ${{ needs.eslint.result }}
+      HADOLINT_RESULT: ${{ needs.hadolint.result }}
+    steps:
+      - name: Require all checks to pass
+        run: |
+          for result in "$PYTEST_RESULT" "$PYLINT_RESULT" "$ESLINT_RESULT" "$HADOLINT_RESULT"; do
+            if [ "$result" != success ]; then
+              echo "A required check did not succeed: $result"
+              exit 1
+            fi
+          done
