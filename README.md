@@ -28,6 +28,19 @@ The API is available at <http://127.0.0.1:8000>. Interactive API documentation i
 
 Release Please runs on pushes to `main` and creates or updates a release pull request based on [Conventional Commit](https://www.conventionalcommits.org/) messages. For example, `fix: correct sailing time parsing` indicates a patch-level change, while `feat: add route filtering` indicates a minor change.
 
+Release pull requests are configured for squash auto-merge after required checks and reviews pass. The App token lets Release Please trigger CI on its pull requests and lets the merged release trigger the workflow that creates the GitHub release. The **CI result** check must remain required; otherwise a release could merge before CI finishes.
+
+Before merging the App-based workflow, create and configure a GitHub App:
+
+1. Open [GitHub App settings](https://github.com/settings/apps), select **New GitHub App**, and choose a unique name. Use your repository URL as the homepage, turn off **Active** under Webhook, and choose **Only on this account**.
+2. Under **Repository permissions**, grant **Contents: Read and write**, **Issues: Read and write**, and **Pull requests: Read and write**. Leave other permissions at their defaults, then create the App.
+3. On the App's settings page, copy its **Client ID**. Generate and download a private key, and keep it private.
+4. Select **Install App**, install it on your account, and grant access to this repository.
+5. In this repository, open **Settings > Secrets and variables > Actions**. Under **Variables**, add `RELEASE_PLEASE_APP_CLIENT_ID` with the Client ID. Under **Secrets**, add `RELEASE_PLEASE_APP_PRIVATE_KEY` with the entire contents of the downloaded private key file. Do not commit the key.
+6. Merge the workflow change into `main`. The workflow also supports manual execution from the Actions tab. Confirm that a release PR runs CI, enables auto-merge, and creates a GitHub release after merging.
+
+Without these App credentials and installation, Release Please will fail rather than create releases. GitHub may require an approval before running CI for a new App's first pull request. Required reviews and branch rules still apply; the workflow does not bypass them.
+
 ## Dependabot auto-merge
 
 The Dependabot workflow requests squash auto-merge for Dependabot pull requests targeting `main`; it does not approve them. Before enabling the workflow, enable auto-merge in repository settings and configure branch protection or a ruleset for `main` to require **CI result**. This aggregate check passes only if Pytest, Pylint, ESLint, and Hadolint all pass. Auto-merge only waits for required checks and reviews; without that rule, a pull request could merge before tests finish. Replace any previous required check names with the new reusable-workflow check names or the aggregate **CI result** check.
