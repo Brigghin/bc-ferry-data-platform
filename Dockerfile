@@ -11,10 +11,10 @@ RUN apt-get update \
 RUN pip install --no-cache-dir uv==0.12.15
 
 COPY ./backend/pyproject.toml ./backend/uv.lock /app/
-RUN uv sync --locked --no-install-project
+RUN uv sync --locked --no-install-project --python /usr/local/bin/python --no-python-downloads
 
 COPY ./backend /app
-RUN uv sync --locked
+RUN uv sync --locked --python /usr/local/bin/python --no-python-downloads
 
 #Run stage 
 FROM base AS runtime
@@ -30,6 +30,9 @@ COPY --from=builder --chown=10001:10001 /app/.venv /app/.venv
 # Add the virtual environment executables to PATH.
 ENV PATH="/app/.venv/bin:${PATH}"
 USER 10001:10001
+
+RUN DATABASE_URL=sqlite:// fastapi --help >/dev/null \
+    && DATABASE_URL=sqlite:// python -c "from bc_ferry_data_platform.main import app; assert app"
 
 EXPOSE 8000
 
