@@ -27,6 +27,8 @@ jobs:
 
       - name: Run Pytest
         working-directory: backend
+        env:
+          DATABASE_URL: "sqlite://"
         run: |
           set -o pipefail
           uv run pytest --cov=bc_ferry_data_platform 2>&1 | tee pytest-results.txt
