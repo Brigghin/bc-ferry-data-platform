@@ -1,12 +1,9 @@
 name: Hadolint
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_call:
 
 jobs:
   run-hadolint:
-    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     name: Lint Dockerfile
     runs-on: ubuntu-latest
     steps:
@@ -23,5 +20,14 @@ jobs:
         run: |
           echo "## Hadolint Results" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat hadolint.txt >> $GITHUB_STEP_SUMMARY
+          if [ -f hadolint.txt ]; then cat hadolint.txt >> $GITHUB_STEP_SUMMARY; fi
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Save output for PR summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-hadolint
+          path: hadolint.txt
+          if-no-files-found: warn
+          retention-days: 7
