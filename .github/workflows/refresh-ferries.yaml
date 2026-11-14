@@ -1,0 +1,36 @@
+name: Refresh ferries
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: refresh-ferries
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call refresh endpoint
+        env:
+          REFRESH_URL: ${{ vars.FERRY_REFRESH_URL }}
+        run: |
+          if [ -z "$REFRESH_URL" ]; then
+            echo "::error::Set the FERRY_REFRESH_URL repository variable to the refresh endpoint URL."
+            exit 1
+          fi
+
+          status=$(curl --fail-with-body --silent --show-error \
+            --connect-timeout 15 --max-time 120 \
+            --output /dev/null --write-out '%{http_code}' \
+            --request POST "$REFRESH_URL")
+          if [[ ! "$status" =~ ^2[0-9][0-9]$ ]]; then
+            echo "::error::Refresh endpoint returned HTTP $status."
+            exit 1
+          fi
+          echo "Refresh succeeded (HTTP $status)."
