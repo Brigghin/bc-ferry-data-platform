@@ -1,14 +1,11 @@
 name: ESlint
 
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_call:
 
 jobs:
   run-ESlint:
     name: Lint JavaScript/TypeScript
-    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
@@ -22,8 +19,26 @@ jobs:
       working-directory: frontend
       run: npm install
 
+    - name: Run ESLint
+      working-directory: frontend
+      run: |
+        set -o pipefail
+        npm run lint 2>&1 | tee eslint-results.txt
+
     - name: Add lint output to summary
+      if: always()
       working-directory: frontend
       run: |
         echo "## Lint results" >> "$GITHUB_STEP_SUMMARY"
-        npm run lint >> "$GITHUB_STEP_SUMMARY" 2>&1
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+        if [ -f eslint-results.txt ]; then cat eslint-results.txt >> "$GITHUB_STEP_SUMMARY"; fi
+        echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Save output for PR summary
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: ci-eslint
+        path: frontend/eslint-results.txt
+        if-no-files-found: warn
+        retention-days: 7
