@@ -75,13 +75,13 @@ Fetches the current capacity feed from the upstream API, stores route/sailing da
 
 ### Automatic refresh
 
-The existing refresh endpoint can be called by an external scheduler every 10 minutes; no separate refresh command is required. Configure the scheduled job with your hosting provider once you have chosen one. The schedule is not enabled by this repository. For example, a scheduler that supports cron and shell commands can use:
+The [refresh workflow](../.github/workflows/refresh-ferries.yaml) calls the existing endpoint every 10 minutes and can also be started manually from the Actions tab. To enable it:
 
-```cron
-*/10 * * * * curl --fail --silent --show-error --request POST https://YOUR-BACKEND-HOST/ferries/refresh
-```
+1. Deploy the backend and apply its database migrations. The backend must be reachable from a GitHub-hosted runner.
+2. In GitHub, open **Settings > Secrets and variables > Actions > Variables**, create a repository variable named `FERRY_REFRESH_URL`, and set it to the full endpoint URL, for example `https://your-backend-host.example/ferries/refresh`.
+3. Merge the workflow into the default branch. Scheduled GitHub Actions run from the default branch and may be delayed or skipped during high load. GitHub may also disable scheduled workflows in public repositories after 60 days of inactivity.
 
-Replace the URL with your backend address. The endpoint currently has no authentication; protect it before exposing it publicly or scheduling remote requests. Configure your scheduler to report failed requests. Concurrent refreshes can conflict; failed refreshes should be retried by the scheduler.
+The endpoint currently has no authentication: anyone who can reach it can trigger a refresh. Protect it before exposing it publicly if that risk is not acceptable. The workflow reports failures in GitHub Actions and prevents its own runs from overlapping, but manual or other external refresh requests can still conflict. A timed-out request may continue running on the server.
 
 ## Data source and storage
 
