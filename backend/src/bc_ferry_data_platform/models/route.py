@@ -12,14 +12,16 @@ if TYPE_CHECKING:
 
 class Route(Base):
     """Route model for FerryRoute"""
+
     __tablename__ = "routes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     routeCode: Mapped[str] = mapped_column("route_code", String(6), unique=True)
-    source: Mapped[str] = mapped_column(String(3))
-    destination: Mapped[str] = mapped_column(String(3))
-    duration: Mapped[str] = mapped_column(String)
-    ferries: Mapped[list["Sailing"]] = relationship(
+    fromTerminalCode: Mapped[str] = mapped_column("from_terminal_code", String(3))
+    toTerminalCode: Mapped[str] = mapped_column("to_terminal_code", String(3))
+    sailingDuration: Mapped[str] = mapped_column("sailing_duration", String, default="")
+    sailings: Mapped[list["Sailing"]] = relationship(
         back_populates="route",
         cascade="all, delete-orphan",
+        order_by="Sailing.scheduledTime",
     )

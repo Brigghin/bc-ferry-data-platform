@@ -1,354 +1,247 @@
-'''Test files for the services/ferries file'''
+"""Tests for capacity-feed parsing, fetch, and storage."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 import httpx
 import pytest
 import respx
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
 
-from bc_ferry_data_platform.services.ferries import (ferry_info_parse,
-                                                     ferry_info_status_helper,
-                                                     ferry_info_time_helper,
-                                                     fetch_api_ferries,
-                                                     infer_sailing_date)
+from bc_ferry_data_platform.models.base import Base
+from bc_ferry_data_platform.models.route import Route as RouteModel
+from bc_ferry_data_platform.models.sailing import Sailing as SailingModel
+from bc_ferry_data_platform.services.ferries import (
+    BASE_URL,
+    fetch_api_ferries,
+    fetch_storage_ferries,
+    parse_bc_time,
+    parse_utc,
+    sailing_parse,
+    upload_ferries,
+)
+from bc_ferry_data_platform.schemas.ferries import Route as RouteSchema
+from bc_ferry_data_platform.schemas.ferries import Sailing as SailingSchema
 
-BASE_URL = "https://www.bcferriesapi.ca/v2/"
 BC_TIMEZONE = ZoneInfo("America/Vancouver")
 
 
-def test_infer_sailing_date_rolls_future_departure_to_tomorrow():
-    observed_at = datetime(2026, 11, 2, 23, 45, tzinfo=BC_TIMEZONE)
+def test_parse_bc_time_combines_service_date_and_local_time() -> None:
+    """Interpret a clock time in the BC timezone on its service date."""
+    result = parse_bc_time("2026-11-10", "8:30 am")
 
-    result = infer_sailing_date("0:30", "future", observed_at)
-
-    assert result == date(2026, 11, 3)
-
-
-def test_infer_sailing_date_keeps_upcoming_departure_today():
-    observed_at = datetime(2026, 11, 3, 0, 10, tzinfo=BC_TIMEZONE)
-
-    result = infer_sailing_date("0:30", "future", observed_at)
-
-    assert result == date(2026, 11, 3)
+    assert result == datetime(2026, 11, 10, 8, 30, tzinfo=BC_TIMEZONE)
 
 
-def test_infer_sailing_date_does_not_roll_past_departure_forward():
-    observed_at = datetime(2026, 11, 3, 10, 0, tzinfo=BC_TIMEZONE)
-
-    result = infer_sailing_date("9:00", "past", observed_at)
-
-    assert result == date(2026, 11, 3)
+def test_parse_bc_time_returns_none_for_missing_time() -> None:
+    """Preserve missing upstream clock times as null."""
+    assert parse_bc_time(date(2026, 11, 10), None) is None
 
 
-def test_time_helper():
-    '''Tests the ferry_info_time_helper function in services/ferries'''
-    test_inputs = [{
-        "time": "10:40 pm", #both Pm
-        "arrivalTime": "11:30 pm"
-    }, {
-        "time": "10:40 am", #both am
-        "arrivalTime": "11:30 am"
-    },  {
-        "time": "1:40 pm", #pm then am
-        "arrivalTime": "1:30 am"
-    },  {
-        "time": "10:40 am", #am then pm
-        "arrivalTime": "11:30 pm"
-    }, {
-        "time": "12:00 am", #noon edge cases
-        "arrivalTime": "12:00 pm"
-    },  {
-        "time": "", #empty time
-        "arrivalTime": "11:30 pm"
-    }, {
-        "time": "10:40 pm", #empty arrivaltime
-        "arrivalTime": ""
-    }, {
-        "time": "", #both empty
-        "arrivalTime": ""
-    }, {
-        "time": "test", #non valid formatting
-        "arrivalTime": "11:30 pm"
-    }, {
-        "time": "10:40 pm", #arrivaltime non valid formatting
-        "arrivalTime": "test"
-    }, {
-        "time": "test", #both non valid formatting
-        "arrivalTime": "test"
-    }, {
-        "time": "am", #partial match
-        "arrivalTime": "pm"
-    }, {
-        "time": "2 am", #partial match v2
-        "arrivalTime": "1 pm"
-    }]
+def test_parse_utc_trims_nanoseconds_and_parses_zulu_timestamp() -> None:
+    """Parse upstream UTC timestamps with more precision than Python supports."""
+    result = parse_utc("2026-11-10T16:30:45.123456789Z")
 
-    test_outputs = [
-        ("22:40", "23:30"),
-        ("10:40", "11:30"),
-        ("13:40", "1:30"),
-        ("10:40", "23:30"),
-        ("0:00", "12:00"), 
-        ("", "23:30"),
-        ("22:40", ""), 
-        ("", ""), 
-        ("", "23:30"),
-        ("22:40", ""),
-        ("", ""),
-        ("", ""),
-        ("", ""),
-    ]
+    assert result == datetime(
+        2026, 11, 10, 16, 30, 45, 123456, tzinfo=timezone.utc
+    )
 
-    for test_input, expected_output in zip(test_inputs, test_outputs):
-        departure_time, arrival_time, _ = ferry_info_time_helper(test_input)
-        assert (departure_time, arrival_time) == expected_output
 
-def test_status_helper():
-    '''Tests the ferry_info_status_helper function in services/ferries'''
-    test_inputs = [
-    ("22:40", "23:30", "12:00"), 
-    ("22:40", "11:30", "12:00"), 
-    ("22:40", "",      "12:00"),
-    ("",      "22:40", "12:00"),
-    ("",      "",      "12:00"),
-    ("10:40", "10:40", "10:40"),
-    ("10:40", "10:41", "10:40"),
-    ("10:40", "10:39", "10:40"),
-    ]
-
-    test_outputs = [
-    "current",  # arrival > current_time
-    "past",     # arrival < current_time
-    "future",   # departure exists, arrival missing
-    "unknown",  # departure missing, arrival exists
-    "unknown",  # both missing
-    "current",  # arrival == current_time
-    "current",  # arrival > current_time
-    "past",     # arrival < current_time
-    ]
-
-    for test_input, expected_output in zip(test_inputs, test_outputs):
-        status = ferry_info_status_helper(
-            test_input[0],
-            test_input[1],
-            test_input[2]
-        )
-        assert status == expected_output
-
-def test_ferry_info_parse():
-    """Tests the ferry_info_parse function in services/ferries."""
-
-    test_inputs = [
+def test_sailing_parse_uses_arrival_date_and_shared_capture_time() -> None:
+    """Use arrival date for post-midnight arrivals and retain capture metadata."""
+    captured_at = datetime(2026, 11, 10, 16, tzinfo=timezone.utc)
+    parsed = sailing_parse(
         [
             {
-                "time": "10:40 pm", #normal test pm time
-                "arrivalTime": "11:30 pm",
-                "vesselName": "Coastal Renaissance",
+                "serviceDate": "2026-11-10",
+                "arrivalDate": "2026-11-11",
+                "scheduledTime": "11:30 pm",
+                "actualDepartureTime": "11:40 pm",
+                "actualArrivalTime": "1:00 am",
+                "capacityKnown": True,
+                "carCapacityKnown": True,
+                "oversizeCapacityKnown": False,
                 "fill": 50,
                 "carFill": 60,
-                "oversizeFill": 70
+                "oversizeFill": 0,
+                "vesselName": "Test vessel",
+                "status": "departed",
+                "observedAt": "2026-11-10T23:45:00.123456789Z",
             }
         ],
-        [
-            {
-                "time": "10:40 am", #normal test am time
-                "arrivalTime": "11:30 am",
-                "vesselName": "Spirit of Vancouver Island",
-                "fill": 25,
-                "carFill": 30,
-                "oversizeFill": 35
-            }
-        ],
-        [
-            {
-                "time": "12:00 am", #noon edge cases
-                "arrivalTime": "12:00 pm",
-                "vesselName": "Coastal Celebration",
-                "fill": 100,
-                "carFill": 80,
-                "oversizeFill": 20
-            }
-        ],
-        [
-            {
-                "time": "", #only vesselname
-                "arrivalTime": "",
-                "vesselName": "Northern Adventure"
-            }
-        ],
-        [
-            {
-                "time": "10:40 pm", #missing arrival time
-                "arrivalTime": "",
-                "vesselName": "Queen of Oak Bay"
-            }
-        ],
-        [
-            {
-                "time": "", #missing time
-                "arrivalTime": "11:30 pm",
-                "vesselName": "Spirit of British Columbia"
-            }
-        ]
-    ]
+        captured_at,
+    )
 
-    test_outputs = [
-        {
-            "departureTime": "22:40",
-            "arrivalTime": "23:30",
-            "vessel": "Coastal Renaissance",
-            "fill": 50,
-            "carFill": 60,
-            "oversizeFill": 70
-        },
-        {
-            "departureTime": "10:40",
-            "arrivalTime": "11:30",
-            "vessel": "Spirit of Vancouver Island",
-            "fill": 25,
-            "carFill": 30,
-            "oversizeFill": 35
-        },
-        {
-            "departureTime": "0:00",
-            "arrivalTime": "12:00",
-            "vessel": "Coastal Celebration",
-            "fill": 100,
-            "carFill": 80,
-            "oversizeFill": 20
-        },
-        {
-            "departureTime": "",
-            "arrivalTime": "",
-            "vessel": "Northern Adventure",
-            "fill": 0,
-            "carFill": 0,
-            "oversizeFill": 0
-        },
-        {
-            "departureTime": "22:40",
-            "arrivalTime": "",
-            "vessel": "Queen of Oak Bay",
-            "fill": 0,
-            "carFill": 0,
-            "oversizeFill": 0
-        },
-        {
-            "departureTime": "",
-            "arrivalTime": "23:30",
-            "vessel": "Spirit of British Columbia",
-            "fill": 0,
-            "carFill": 0,
-            "oversizeFill": 0
-        }
-    ]
+    assert len(parsed) == 1
+    assert parsed[0].scheduledTime == datetime(
+        2026, 11, 10, 23, 30, tzinfo=BC_TIMEZONE
+    )
+    assert parsed[0].actualArrivalTime == datetime(
+        2026, 11, 11, 1, 0, tzinfo=BC_TIMEZONE
+    )
+    assert parsed[0].observedAt == datetime(
+        2026, 11, 10, 23, 45, 0, 123456, tzinfo=timezone.utc
+    )
+    assert parsed[0].APICapturedAt == captured_at
 
-    for input_num, sailing_list in enumerate(test_inputs):
-        result = ferry_info_parse(sailing_list)
 
-        assert len(result) == 1
+@pytest.mark.parametrize("scheduled_time", [None, "", "   "])
+def test_sailing_parse_rejects_missing_scheduled_time(scheduled_time) -> None:
+    """Reject records which do not have a usable unique key."""
+    with pytest.raises(ValueError):
+        sailing_parse([{
+            "serviceDate": "2026-11-10",
+            "scheduledTime": scheduled_time,
+        }])
 
-        ferry = result[0]
-
-        assert ferry.departureTime == test_outputs[input_num]["departureTime"]
-        assert ferry.arrivalTime == test_outputs[input_num]["arrivalTime"]
-        assert ferry.vessel == test_outputs[input_num]["vessel"]
-        assert ferry.fill == test_outputs[input_num]["fill"]
-        assert ferry.carFill == test_outputs[input_num]["carFill"]
-        assert ferry.oversizeFill == test_outputs[input_num]["oversizeFill"]
-
-def test_ferry_info_parse_multiple_records():
-    '''Testing multiple ferry inputs for ferry_info_parse'''
-    test_input = [
-        {
-            "time": "10:40 pm",
-            "arrivalTime": "11:30 pm",
-            "vesselName": "Vessel One"
-        },
-        {
-            "time": "10:40 am",
-            "arrivalTime": "11:30 am",
-            "vesselName": "Vessel Two"
-        }
-    ]
-
-    result = ferry_info_parse(test_input)
-
-    assert len(result) == 2
-
-    assert result[0].vessel == "Vessel One"
-    assert result[1].vessel == "Vessel Two"
-
-def test_ferry_info_parse_empty_list():
-    '''Tests empty lists for ferry_info_parse'''
-    result = ferry_info_parse([])
-
-    assert not result
 
 @pytest.mark.anyio
 @respx.mock
-async def test_fetch_ferries():
-    '''Test fetch_ferries function'''
-    api_response = {
-        "capacityRoutes": [
-            {
-                "routeCode": "TSA-SWB", #normal test
-                "fromTerminalCode": "TSA",
-                "toTerminalCode": "SWB",
-                "sailingDuration": "1h 35m",
-                "sailings": []
-            },
-            {
-                "routeCode": "HSB-NAN", #normal test
-                "fromTerminalCode": "HSB",
-                "toTerminalCode": "NAN",
-                "sailingDuration": "1h 40m",
-                "sailings": []
-            },
-            {
-                "routeCode": "tsa-swb", #lowercase codes
-                "fromTerminalCode": "tsa",
-                "toTerminalCode": "swb",
-                "sailingDuration": "1h 35m",
-                "sailings": []
-            },
-            {
-                "routeCode": "HSB-NAN", #missing duration
-                "fromTerminalCode": "HSB",
-                "toTerminalCode": "NAN",
-                "sailingDuration": "",
-                "sailings": []
-            }
-        ]
-    }
+async def test_fetch_api_ferries_maps_capacity_feed() -> None:
+    """Map the upstream capacity feed into normalized route schemas."""
     respx.get(BASE_URL).mock(
         return_value=httpx.Response(
             200,
-            json=api_response
+            json={
+                "capacityRoutes": [
+                    {
+                        "routeCode": "TSA-SWB",
+                        "fromTerminalCode": "tsa",
+                        "toTerminalCode": "swb",
+                        "sailingDuration": "1h 35m",
+                        "sailings": [
+                            {
+                                "serviceDate": "2026-11-10",
+                                "scheduledTime": "8:30 am",
+                                "capacityKnown": True,
+                                "carCapacityKnown": True,
+                                "oversizeCapacityKnown": True,
+                                "fill": 50,
+                                "carFill": 60,
+                                "oversizeFill": 70,
+                                "vesselName": "Test vessel",
+                                "status": "scheduled",
+                            }
+                        ],
+                    }
+                ]
+            },
         )
     )
 
-    result = await fetch_api_ferries()
+    routes = await fetch_api_ferries()
 
-    assert len(result) == 4
+    assert len(routes) == 1
+    assert routes[0].routeCode == "TSASWB"
+    assert routes[0].fromTerminalCode == "TSA"
+    assert routes[0].toTerminalCode == "SWB"
+    assert routes[0].sailings[0].fill == 50
 
-    assert result[0].routeCode == "TSASWB"
-    assert result[0].source == "TSA"
-    assert result[0].destination == "SWB"
-    assert result[0].duration == "1h 35m"
 
-    assert result[1].routeCode == "HSBNAN"
-    assert result[1].source == "HSB"
-    assert result[1].destination == "NAN"
-    assert result[1].duration == "1h 40m"
+@pytest.mark.anyio
+async def test_upload_and_fetch_round_trip(monkeypatch) -> None:
+    """Store fetched route and sailing data and return it through the read path."""
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
 
-    assert result[2].routeCode == "TSASWB"
-    assert result[2].source == "TSA"
-    assert result[2].destination == "SWB"
-    assert result[2].duration == "1h 35m"
+    service_date = datetime.now(BC_TIMEZONE).date() + timedelta(days=1)
+    captured_at = datetime.now(timezone.utc)
+    sailing = SailingSchema(
+        serviceDate=service_date,
+        scheduledTime=datetime.combine(
+            service_date, datetime.min.time(), tzinfo=BC_TIMEZONE
+        ),
+        capacityKnown=True,
+        carCapacityKnown=True,
+        oversizeCapacityKnown=False,
+        fill=45,
+        carFill=50,
+        oversizeFill=0,
+        vesselName="Test vessel",
+        status="scheduled",
+        APICapturedAt=captured_at,
+    )
+    route = RouteSchema(
+        routeCode="TSASWB",
+        fromTerminalCode="TSA",
+        toTerminalCode="SWB",
+        sailingDuration="1h 35m",
+        sailings=[sailing],
+    )
 
-    assert result[3].routeCode == "HSBNAN"
-    assert result[3].source == "HSB"
-    assert result[3].destination == "NAN"
-    assert result[3].duration == ""
+    async def fetch_routes():
+        return [route]
+
+    monkeypatch.setattr(
+        "bc_ferry_data_platform.services.ferries.fetch_api_ferries",
+        fetch_routes,
+    )
+
+    try:
+        with Session(engine) as session:
+            assert await upload_ferries(session) == 1
+            sailing.actualDepartureTime = sailing.scheduledTime
+            sailing.fill = 65
+            assert sailing.scheduledTime is not None
+            extra_sailing = sailing.model_copy(
+                update={"scheduledTime": sailing.scheduledTime + timedelta(hours=1)}
+            )
+            route.sailings.append(extra_sailing)
+            assert await upload_ferries(session) == 1
+            session.expire_all()
+            stored_routes = fetch_storage_ferries(session, "TSA-SWB")
+
+            assert len(stored_routes) == 1
+            assert stored_routes[0].sailings[0].vesselName == "Test vessel"
+            assert stored_routes[0].sailings[0].fill == 65
+            assert stored_routes[0].sailings[0].actualDepartureTime is not None
+            assert session.query(RouteModel).count() == 1
+            assert session.query(SailingModel).count() == 2
+    finally:
+        Base.metadata.drop_all(engine)
+        engine.dispose()
+
+
+@pytest.mark.anyio
+async def test_upload_rolls_back_if_sailing_key_is_missing(monkeypatch) -> None:
+    """Do not leave partial route data after a persistence error."""
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    route = RouteSchema(
+        routeCode="TSASWB",
+        fromTerminalCode="TSA",
+        toTerminalCode="SWB",
+        sailingDuration="1h 35m",
+        sailings=[
+            SailingSchema(
+                serviceDate=date(2026, 11, 10),
+                scheduledTime=None,
+                capacityKnown=False,
+                carCapacityKnown=False,
+                oversizeCapacityKnown=False,
+                fill=0,
+                carFill=0,
+                oversizeFill=0,
+                vesselName="Test vessel",
+                status="scheduled",
+            )
+        ],
+    )
+
+    async def fetch_routes():
+        return [route]
+
+    monkeypatch.setattr(
+        "bc_ferry_data_platform.services.ferries.fetch_api_ferries", fetch_routes
+    )
+
+    try:
+        with Session(engine) as session:
+            with pytest.raises(ValueError, match="has no scheduled time"):
+                await upload_ferries(session)
+            assert session.query(RouteModel).count() == 0
+            assert session.query(SailingModel).count() == 0
+    finally:
+        Base.metadata.drop_all(engine)
+        engine.dispose()
