@@ -2,14 +2,11 @@
 name: Pylint
 
 on:
-  pull_request:
-    branches:
-      - main
+  workflow_call:
 
 jobs:
   run-pylint:
     name: Lint Python
-    if: ${{ !startsWith(github.head_ref, 'release-please--') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
@@ -32,7 +29,8 @@ jobs:
       - name: Run Pylint
         working-directory: backend
         run: |
-          uv run --locked pylint -f text src > pylint-results.txt || true
+          set -o pipefail
+          uv run --locked pylint -f text src 2>&1 | tee pylint-results.txt
 
       - name: Publish Results
         if: always()
@@ -40,15 +38,14 @@ jobs:
         run: |
           echo "## Pylint Results" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat pylint-results.txt >> $GITHUB_STEP_SUMMARY
+          if [ -f pylint-results.txt ]; then cat pylint-results.txt >> $GITHUB_STEP_SUMMARY; fi
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      - name: Check for lint output
-        id: lintcheck
-        working-directory: backend
-        run: |
-          if [ -s pylint-results.txt ]; then
-            echo "has_issues=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_issues=false" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Save output for PR summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-pylint
+          path: backend/pylint-results.txt
+          if-no-files-found: warn
+          retention-days: 7

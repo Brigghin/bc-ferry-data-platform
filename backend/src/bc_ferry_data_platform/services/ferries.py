@@ -1,207 +1,150 @@
 """Fetch and transform BC Ferries sailing data for the API."""
 
 import re
-from datetime import date, datetime, time, timedelta
+from datetime import date, datetime, timezone
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
-from ..models.route import Route
-from ..models.sailing import Sailing
+from ..models.route import Route as RouteModel
+from ..models.sailing import Sailing as SailingModel
 from ..repositories.route import add_sailing_history, get_or_add_route
-from ..schemas.ferries import FerryInfo, FerryRoute
+from ..schemas.ferries import Route as RouteSchema
+from ..schemas.ferries import Sailing as SailingSchema
 
 BASE_URL = "https://www.bcferriesapi.ca/v2/"
 BC_TIMEZONE = ZoneInfo("America/Vancouver")
 
+def parse_utc(value: str | None) -> datetime | None:
+    """Parse an RFC 3339 timestamp (with nanoseconds and 'Z') into an aware UTC datetime."""
+    if not value:
+        return None
+    # Trim fractional seconds to 6 digits and turn 'Z' into '+00:00'
+    value = re.sub(r"(\.\d{6})\d+", r"\1", value).replace("Z", "+00:00")
+    return datetime.fromisoformat(value).astimezone(timezone.utc)
 
-def normalize_route_code(route_code: str) -> str:
-    """Normalize the route code to remove the -"""
-    return route_code.replace("-", "").strip().upper()
+def parse_bc_time(service_date: str | date, value: str | None) -> datetime | None:
+    """Combine a service date and a BC local time like '5:45 pm' into an aware datetime."""
+    if not value:
+        return None
+    if isinstance(service_date, str):
+        service_date = date.fromisoformat(service_date)
+    t = datetime.strptime(value.strip().upper(), "%I:%M %p").time()
+    return datetime.combine(service_date, t, tzinfo=BC_TIMEZONE)
 
-
-def ferry_info_status_helper(departure_time: str, arrival_time: str, current_time: str) -> str:
-    """Find the status info for the ferry_info object."""
-    status = "unknown"
-    #Compare the time objects to set sailing status
-    if not arrival_time and departure_time:
-        status = "future"
-    elif not arrival_time and not departure_time:
-        status = "unknown"
-    elif arrival_time and not departure_time:
-        status = "unknown"
-    elif arrival_time >= current_time:
-        status = "current"
-    elif arrival_time < current_time:
-        status = "past"
-    return status
-
-def ferry_info_time_helper(
-    sailing: dict[str, str],
-    observed_at: datetime | None = None,
-) -> tuple[str, str, str]:
-    """Parse the time info for the ferry_info object."""
-    departure_time = ""
-    arrival_time = ""
-    #Create regex for matching the time format from the API
-    time_pattern = re.compile(r"^(\d{1,2}):(\d{2})\s*(am|pm)$", re.IGNORECASE)
-    for time_field in ("time", "arrivalTime"):
-        time_text = sailing.get(time_field, "")
-        match = time_pattern.match(time_text)
-        if match:
-            hour = int(match.group(1))
-            minute = int(match.group(2))
-            period = match.group(3).lower()
-
-            #Convert to 24 hr time
-            if period == "pm":
-                hour = hour % 12 + 12
-            elif hour == 12:
-                hour = 0
-
-            sailing_time = time(hour=hour, minute=minute).strftime("%H:%M")
-
-            if time_field == "time":
-                departure_time = sailing_time
-            else:
-                arrival_time = sailing_time
-
-    now = observed_at or datetime.now(BC_TIMEZONE)
-    if now.tzinfo is None:
-        now = now.replace(tzinfo=BC_TIMEZONE)
-    else:
-        now = now.astimezone(BC_TIMEZONE)
-    current_time = now.strftime("%H:%M")
-    status = ferry_info_status_helper(departure_time, arrival_time, current_time)
-
-    if departure_time:
-        departure_time = departure_time[1:] if departure_time[0] == "0" else departure_time
-
-    if arrival_time:
-        arrival_time = arrival_time[1:] if arrival_time[0] == "0" else arrival_time
-
-    return departure_time, arrival_time, status
-
-
-def infer_sailing_date(
-    departure_time: str,
-    status: str,
-    observed_at: datetime,
-) -> date:
-    """Infer the sailing day for feeds that provide a time but no date."""
-    if observed_at.tzinfo is None:
-        observed_at = observed_at.replace(tzinfo=BC_TIMEZONE)
-    else:
-        observed_at = observed_at.astimezone(BC_TIMEZONE)
-
-    sailing_date = observed_at.date()
-    if departure_time and status == "future":
-        hour, minute = (int(part) for part in departure_time.split(":"))
-        departure_clock = time(hour=hour, minute=minute)
-        if departure_clock <= observed_at.time().replace(tzinfo=None):
-            sailing_date += timedelta(days=1)
-    return sailing_date
-
-
-def ferry_info_parse(
-    sailing_list: list[dict[str, str]],
-    observed_at: datetime | None = None,
-) -> list[FerryInfo]:
+def sailing_parse(
+    sailing_list: list[dict[str, Any]],  # List of sailing-time records from the API
+    captured_at: datetime | None = None,
+) -> list[SailingSchema]:
     """Convert upstream sailing-time records to response models."""
-    observed_at = observed_at or datetime.now(BC_TIMEZONE)
-    ferry_info_list = []
-    for ferry_info in sailing_list:
-        departure_time, arrival_time, status = ferry_info_time_helper(
-            ferry_info,
-            observed_at,
+    captured_at = captured_at or datetime.now(timezone.utc)  # one value for the whole fetch
+    parsed: list[SailingSchema] = []
+    for sailing in sailing_list:
+        service_date = sailing["serviceDate"]
+        scheduled_time = parse_bc_time(service_date, sailing.get("scheduledTime"))
+        if scheduled_time is None:
+            raise ValueError(f"Sailing on {service_date} has no scheduled time")
+        arrival_date = sailing.get("arrivalDate") or service_date
+        parsed.append(
+            SailingSchema(
+                serviceDate=date.fromisoformat(service_date),
+                scheduledTime=scheduled_time,
+                actualDepartureTime=parse_bc_time(service_date, sailing.get("actualDepartureTime")),
+                actualArrivalTime=parse_bc_time(arrival_date, sailing.get("actualArrivalTime")),
+                capacityKnown=bool(sailing["capacityKnown"]),
+                carCapacityKnown=bool(sailing["carCapacityKnown"]),
+                oversizeCapacityKnown=bool(sailing["oversizeCapacityKnown"]),
+                fill=int(sailing.get("fill", 0)),
+                carFill=int(sailing.get("carFill", 0)),
+                oversizeFill=int(sailing.get("oversizeFill", 0)),
+                vesselName=sailing.get("vesselName", ""),
+                status=sailing.get("status", "unknown"),
+                observedAt=parse_utc(sailing.get("observedAt")),
+                APICapturedAt=captured_at,
+            )
         )
-        sailing_date = infer_sailing_date(departure_time, status, observed_at)
+    return parsed
 
-        vessel = ferry_info["vesselName"]
-        fill = int(ferry_info.get("fill") or 0)
-        car_fill = int(ferry_info.get("carFill") or 0)
-        oversize_fill = int(ferry_info.get("oversizeFill") or 0)
-
-        info_object = FerryInfo(
-            departureTime = departure_time,
-            arrivalTime = arrival_time,
-            status = status,
-            vessel = vessel,
-            fill =  fill,
-            carFill = car_fill,
-            oversizeFill = oversize_fill,
-            sailingDate=sailing_date,
-        )
-
-        ferry_info_list.append(info_object)
-
-    return ferry_info_list
-
-async def fetch_api_ferries() -> list[FerryRoute]:
+async def fetch_api_ferries() -> list[RouteSchema]:
     """Fetch ferry routes and map their sailings to response models."""
     async with httpx.AsyncClient() as client:
         response = await client.get(f"{BASE_URL}")
         response.raise_for_status()
         data = response.json()
 
-        results: list[FerryRoute] = []
-        for route in data["capacityRoutes"]:
-            normalized_route_code = normalize_route_code(route["routeCode"])
-            parsed_route = FerryRoute(
-                routeCode=normalized_route_code,
-                source=route["fromTerminalCode"].upper(),
-                destination=route["toTerminalCode"].upper(),
-                duration=route["sailingDuration"],
-                ferries=ferry_info_parse(route["sailings"])
+        # List of FerryRoute Objects each with their own list of FerryInfo Objects
+        results: list[RouteSchema] = []
+        captured_at = datetime.now(timezone.utc)
+        for ferry_route in data["capacityRoutes"]: #Iterating through the routes + sailings from API
+            parsed_route = RouteSchema(
+                routeCode=ferry_route["routeCode"].replace("-", "").strip().upper(),
+                fromTerminalCode=ferry_route["fromTerminalCode"].upper(),
+                toTerminalCode=ferry_route["toTerminalCode"].upper(),
+                sailingDuration=ferry_route["sailingDuration"],
+                sailings=sailing_parse(
+                    ferry_route["sailings"], captured_at
+                ) #Formatted list of sailings for each route
             )
-            results.append(parsed_route)
+            results.append(parsed_route) #Adding complete route + sailings to the list of results
     return results
 
 async def upload_ferries(session: Session) -> int:
     """Upload ferries to the database"""
     api_routes = await fetch_api_ferries()
 
-    for api_route in api_routes:
-        route = Route(
-            routeCode=api_route.routeCode,
-            source=api_route.source,
-            destination=api_route.destination,
-            duration=api_route.duration,
-        )
-        stored_route = get_or_add_route(session, route)
-        sailing_snapshot = [
-            Sailing(
-                routeCode=stored_route.routeCode,
-                departureTime=ferry.departureTime,
-                arrivalTime=ferry.arrivalTime,
-                status=ferry.status,
-                vessel=ferry.vessel,
-                fill=ferry.fill,
-                carFill=ferry.carFill,
-                oversizeFill=ferry.oversizeFill,
-                sailingDate=ferry.sailingDate,
-            )
-            for ferry in api_route.ferries
-        ]
-        add_sailing_history(session, stored_route.routeCode, sailing_snapshot)
-
     try:
+        for api_route in api_routes:
+            route = RouteModel(
+                routeCode=api_route.routeCode,
+                fromTerminalCode=api_route.fromTerminalCode,
+                toTerminalCode=api_route.toTerminalCode,
+                sailingDuration=api_route.sailingDuration,
+            )
+            stored_route = get_or_add_route(session, route)
+            sailing_snapshot = []
+            for sailing in api_route.sailings:
+                sailing_snapshot.append(
+                    SailingModel(
+                        routeCode=stored_route.routeCode,
+                        serviceDate=sailing.serviceDate,
+                        scheduledTime=sailing.scheduledTime,
+                        actualDepartureTime=sailing.actualDepartureTime,
+                        actualArrivalTime=sailing.actualArrivalTime,
+                        capacityKnown=sailing.capacityKnown,
+                        carCapacityKnown=sailing.carCapacityKnown,
+                        oversizeCapacityKnown=sailing.oversizeCapacityKnown,
+                        fill=sailing.fill,
+                        carFill=sailing.carFill,
+                        oversizeFill=sailing.oversizeFill,
+                        vesselName=sailing.vesselName,
+                        status=sailing.status,
+                        observedAt=sailing.observedAt,
+                        APICapturedAt=sailing.APICapturedAt,
+                    )
+                )
+            add_sailing_history(session, stored_route.routeCode, sailing_snapshot)
         session.commit()
     except Exception:
         session.rollback()
         raise
     return len(api_routes)
 
-def fetch_storage_ferries(session: Session, route_code: str | None) -> list[FerryRoute]:
-    """Fetch ferry routes + sailings from the database"""
-    today = date.today()
-    statement = select(Route).options(selectinload(Route.ferries.and_(Sailing.sailingDate >= today)))
-    if route_code is not None:
-        statement = statement.where(
-            Route.routeCode == normalize_route_code(route_code)
+def fetch_storage_ferries(
+    session: Session, route_code: str | None = None
+) -> list[RouteSchema]:
+    """Fetch ferry routes and upcoming sailings from the database."""
+    today = datetime.now(BC_TIMEZONE).date()
+    statement = select(RouteModel).options(
+        selectinload(
+            RouteModel.sailings.and_(SailingModel.serviceDate >= today)
         )
+    )
+    if route_code is not None:
+        normalized_route_code = route_code.replace("-", "").strip().upper()
+        statement = statement.where(RouteModel.routeCode == normalized_route_code)
 
     routes = session.scalars(statement).all()
-    return [FerryRoute.model_validate(route) for route in routes]
+    return [RouteSchema.model_validate(route) for route in routes]
