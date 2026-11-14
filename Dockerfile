@@ -4,6 +4,10 @@ WORKDIR /app
 #Build stage 
 FROM base AS builder
 #Install uv without cache 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN pip install --no-cache-dir uv==0.12.15
 
 COPY ./backend/pyproject.toml ./backend/uv.lock /app/

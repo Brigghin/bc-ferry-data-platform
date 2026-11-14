@@ -6,6 +6,9 @@ dist/
 wheels/
 *.egg-info
 .env
+.env.local
 
 # Virtual environments
 .venv
+.neon
+node_modules/
