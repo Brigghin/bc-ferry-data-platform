@@ -1,30 +1,36 @@
 """Define response models for ferry routes and sailing times."""
 
-from datetime import date, datetime
+from datetime import datetime, date
 
 from pydantic import BaseModel, ConfigDict
 
 
-class FerryInfo(BaseModel):
+class Sailing(BaseModel):
     """Represents the information for a specific ferry departure."""
     model_config = ConfigDict(from_attributes=True)
 
-    departureTime: str
-    arrivalTime: str
-    status: str
-    vessel: str
+    serviceDate: date
+    scheduledTime: datetime | None = None #BC time zone
+    actualDepartureTime: datetime | None = None #BC time zone
+    actualArrivalTime: datetime | None = None #BC time zone
+    capacityKnown: bool
+    carCapacityKnown: bool
+    oversizeCapacityKnown: bool
     fill: int
     carFill: int
     oversizeFill: int
-    sailingDate: date
-    capturedAt: datetime | None = None
+    vesselName: str
+    status: str
+    observedAt: datetime | None = None
+    APICapturedAt: datetime | None = None
 
-class FerryRoute(BaseModel):
+
+class Route(BaseModel):
     """Represents a ferry route with its scheduled departures."""
     model_config = ConfigDict(from_attributes=True)
 
     routeCode: str
-    source: str
-    destination: str
-    duration: str
-    ferries: list[FerryInfo]
+    fromTerminalCode: str
+    toTerminalCode: str
+    sailingDuration: str
+    sailings: list[Sailing]
