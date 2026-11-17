@@ -86,3 +86,14 @@ def test_refresh_endpoint_returns_processed_route_count(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json() == 2
+
+
+def test_api_allows_cross_origin_reads() -> None:
+    """Allow browser frontends on another origin to read the public API."""
+    response = client.get(
+        "/version/",
+        headers={"Origin": "https://coastline.example"},
+    )
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "*"
