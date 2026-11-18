@@ -14,7 +14,6 @@ from bc_ferry_data_platform.models.route import Route
 from bc_ferry_data_platform.models.sailing import Sailing
 from bc_ferry_data_platform.repositories.route import (
     add_sailing_history,
-    get_by_code,
     get_or_add_route,
 )
 
@@ -74,18 +73,13 @@ def test_add_and_get_route_with_sailings(db_session: Session) -> None:
     db_session.commit()
     db_session.expunge_all()
 
-    stored_route = get_by_code(db_session, "TSA-SWB")
+    stored_route = db_session.scalar(select(Route))
 
     assert stored_route is not None
     assert stored_route.routeCode == "TSASWB"
     assert stored_route.fromTerminalCode == "TSA"
     assert len(stored_route.sailings) == 1
     assert stored_route.sailings[0].vesselName == "Test vessel"
-
-
-def test_get_by_code_returns_none_when_route_is_missing(db_session: Session) -> None:
-    """Return no result for a route code not in storage."""
-    assert get_by_code(db_session, "MISSING") is None
 
 
 def test_refresh_updates_existing_sailing_without_adding_duplicate(

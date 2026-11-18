@@ -1,5 +1,6 @@
 """Fetch and transform BC Ferries sailing data for the API."""
 
+import logging
 import re
 from datetime import date, datetime, timezone
 from typing import Any
@@ -11,12 +12,17 @@ from sqlalchemy.orm import Session, selectinload
 
 from ..models.route import Route as RouteModel
 from ..models.sailing import Sailing as SailingModel
-from ..repositories.route import add_sailing_history, get_or_add_route
+from ..repositories.route import (
+    add_sailing_history,
+    get_or_add_route,
+    normalize_route_code,
+)
 from ..schemas.ferries import Route as RouteSchema
 from ..schemas.ferries import Sailing as SailingSchema
 
 BASE_URL = "https://www.bcferriesapi.ca/v2/"
 BC_TIMEZONE = ZoneInfo("America/Vancouver")
+logger = logging.getLogger(__name__)
 
 def parse_utc(value: str | None) -> datetime | None:
     """Parse an RFC 3339 timestamp (with nanoseconds and 'Z') into an aware UTC datetime."""
@@ -28,7 +34,7 @@ def parse_utc(value: str | None) -> datetime | None:
 
 def parse_bc_time(service_date: str | date, value: str | None) -> datetime | None:
     """Combine a service date and a BC local time like '5:45 pm' into an aware datetime."""
-    if not value:
+    if not value or not value.strip():
         return None
     if isinstance(service_date, str):
         service_date = date.fromisoformat(service_date)
@@ -46,7 +52,9 @@ def sailing_parse(
         service_date = sailing["serviceDate"]
         scheduled_time = parse_bc_time(service_date, sailing.get("scheduledTime"))
         if scheduled_time is None:
-            raise ValueError(f"Sailing on {service_date} has no scheduled time")
+            # Skip it rather than fail the whole refresh over one record.
+            logger.warning("Skipping sailing on %s with no scheduled time", service_date)
+            continue
         arrival_date = sailing.get("arrivalDate") or service_date
         parsed.append(
             SailingSchema(
@@ -68,10 +76,10 @@ def sailing_parse(
         )
     return parsed
 
-async def fetch_api_ferries() -> list[RouteSchema]:
+def fetch_api_ferries() -> list[RouteSchema]:
     """Fetch ferry routes and map their sailings to response models."""
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f"{BASE_URL}")
+    with httpx.Client() as client:
+        response = client.get(BASE_URL)
         response.raise_for_status()
         data = response.json()
 
@@ -80,7 +88,7 @@ async def fetch_api_ferries() -> list[RouteSchema]:
         captured_at = datetime.now(timezone.utc)
         for ferry_route in data["capacityRoutes"]: #Iterating through the routes + sailings from API
             parsed_route = RouteSchema(
-                routeCode=ferry_route["routeCode"].replace("-", "").strip().upper(),
+                routeCode=normalize_route_code(ferry_route["routeCode"]),
                 fromTerminalCode=ferry_route["fromTerminalCode"].upper(),
                 toTerminalCode=ferry_route["toTerminalCode"].upper(),
                 sailingDuration=ferry_route["sailingDuration"],
@@ -91,9 +99,9 @@ async def fetch_api_ferries() -> list[RouteSchema]:
             results.append(parsed_route) #Adding complete route + sailings to the list of results
     return results
 
-async def upload_ferries(session: Session) -> int:
+def upload_ferries(session: Session) -> int:
     """Upload ferries to the database"""
-    api_routes = await fetch_api_ferries()
+    api_routes = fetch_api_ferries()
 
     try:
         for api_route in api_routes:
@@ -143,8 +151,9 @@ def fetch_storage_ferries(
         )
     )
     if route_code is not None:
-        normalized_route_code = route_code.replace("-", "").strip().upper()
-        statement = statement.where(RouteModel.routeCode == normalized_route_code)
+        statement = statement.where(
+            RouteModel.routeCode == normalize_route_code(route_code)
+        )
 
     routes = session.scalars(statement).all()
     return [RouteSchema.model_validate(route) for route in routes]

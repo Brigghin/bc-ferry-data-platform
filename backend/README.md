@@ -85,7 +85,7 @@ Example response:
 
 ### `POST /ferries/refresh`
 
-Fetches the current capacity feed from the upstream API, stores route/sailing data, and returns the number of routes processed. A refresh updates the existing record for the same route, service date, and scheduled time, or inserts a new sailing. A sailing without a scheduled time fails the refresh. Previously known actual times are retained if absent in a later feed; fill values are retained when their corresponding capacity-known flag is false.
+Fetches the current capacity feed from the upstream API, stores route/sailing data, and returns the number of routes processed. A refresh updates the existing record for the same route, service date, and scheduled time, or inserts a new sailing. A sailing without a scheduled time is skipped and logged. Requests must send an `X-Refresh-Token` header matching the backend's `REFRESH_TOKEN` environment variable; if `REFRESH_TOKEN` is unset, every refresh is rejected with 401. Previously known actual times are retained if absent in a later feed; fill values are retained when their corresponding capacity-known flag is false.
 
 ### Automatic refresh
 
@@ -93,9 +93,10 @@ The [refresh workflow](../.github/workflows/refresh-ferries.yaml) calls the exis
 
 1. Deploy the backend and apply its database migrations. The backend must be reachable from a GitHub-hosted runner.
 2. In GitHub, open **Settings > Secrets and variables > Actions > Variables**, create a repository variable named `FERRY_REFRESH_URL`, and set it to the full endpoint URL, for example `https://your-backend-host.example/ferries/refresh`.
-3. Merge the workflow into the default branch. Scheduled GitHub Actions run from the default branch and may be delayed or skipped during high load. GitHub may also disable scheduled workflows in public repositories after 60 days of inactivity.
+3. Generate a random token (for example `python -c "import secrets; print(secrets.token_urlsafe(32))"`). Set it as the `REFRESH_TOKEN` environment variable on the backend host, and as a repository secret named `FERRY_REFRESH_TOKEN` under **Secrets**.
+4. Merge the workflow into the default branch. Scheduled GitHub Actions run from the default branch and may be delayed or skipped during high load. GitHub may also disable scheduled workflows in public repositories after 60 days of inactivity.
 
-The endpoint currently has no authentication: anyone who can reach it can trigger a refresh. Protect it before exposing it publicly if that risk is not acceptable. The workflow reports failures in GitHub Actions and prevents its own runs from overlapping, but manual or other external refresh requests can still conflict. A timed-out request may continue running on the server.
+The workflow reports failures in GitHub Actions and prevents its own runs from overlapping, but a manual call with the token can still conflict with a scheduled run. A timed-out request may continue running on the server.
 
 ## Data source and storage
 

@@ -12,3 +12,6 @@ wheels/
 .venv
 .neon
 node_modules/
+
+# Test coverage data
+.coverage
