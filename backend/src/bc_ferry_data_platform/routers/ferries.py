@@ -1,10 +1,12 @@
 """Expose API routes for ferry schedule data."""
 
+import secrets
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
+from ..config.settings import settings
 from ..database.dependencies import get_session
 from ..schemas.ferries import Route as RouteSchema
 from ..services.ferries import fetch_storage_ferries, upload_ferries
@@ -22,8 +24,13 @@ def list_ferries(
 
 
 @router.post("/refresh")
-async def refresh_ferries(
+def refresh_ferries(
     session: Annotated[Session, Depends(get_session)],
+    x_refresh_token: Annotated[str, Header()] = "",
 ) -> int:
     """Upload ferry routes and their scheduled sailings."""
-    return await upload_ferries(session)
+    if not settings.refresh_token or not secrets.compare_digest(
+        x_refresh_token, settings.refresh_token
+    ):
+        raise HTTPException(status_code=401, detail="Invalid refresh token.")
+    return upload_ferries(session)

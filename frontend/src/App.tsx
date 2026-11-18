@@ -45,6 +45,10 @@ function terminalName(code: string): string {
   return terminalNames[code] ?? code
 }
 
+function shortTerminalName(code: string): string {
+  return terminalName(code).split(' (')[0]
+}
+
 function getTodayInBCTime(): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
@@ -153,6 +157,13 @@ function App() {
 
   return (
     <div className="app-shell">
+      <svg className="contours" viewBox="0 0 1200 420" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M-20 70c180 40 300-30 470 10s260 80 420 30 230-60 360-20" />
+        <path d="M-20 130c160 30 320-20 480 20s280 70 430 30 220-50 340-10" />
+        <path d="M-20 200c200 20 330-10 500 30s250 50 410 20 210-30 330 0" />
+        <path d="M-20 280c170 10 340 10 500 30s270 30 420 10 200-10 320 10" />
+        <path d="M-20 360c220 0 360 20 520 30s260 10 400 0 180 0 320 10" />
+      </svg>
       <header className="topbar">
         <a className="brand" href="/" aria-label="Coastline home">
           <svg className="brand-mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
@@ -160,7 +171,7 @@ function App() {
             <path d="M4 25.5c4.2 0 4.2-3 8.4-3s4.2 3 8.4 3 4.2-3 7.2-3" />
             <path d="M10 14h13l-2-5H13l-3 5Zm4 0v-5m5 5v-5" />
           </svg>
-          <span className="brand-name">coastline<span>.</span></span>
+          <span className="brand-name">Coastline</span>
         </a>
       </header>
 
@@ -232,16 +243,29 @@ function App() {
           </div>
         ) : selectedRoute ? (
           <section className="sailings" aria-label="Today's sailings" aria-live="polite">
-            <div className="sailings-header">
-              <span>Today · {selectedRoute.sailingDuration} crossing</span>
-              <span>Pacific time</span>
-            </div>
+            <p className="crossing" key={selectedRoute.routeCode + origin}>
+              <span>{shortTerminalName(origin)}</span>
+              <span className="crossing-course">
+                <span className="crossing-duration">{selectedRoute.sailingDuration}</span>
+                <svg viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true">
+                  <line x1="4" y1="6" x2="96" y2="6" />
+                  <circle cx="4" cy="6" r="3" />
+                  <circle cx="96" cy="6" r="3" />
+                </svg>
+              </span>
+              <span>{shortTerminalName(destination)}</span>
+            </p>
+            <p className="sailings-header">Today’s sailings, Pacific time</p>
             {sailings.length > 0 ? (
-              sailings.map((sailing, index) => (
-                <SailingRow key={sailing.scheduledTime ?? index} sailing={sailing} />
-              ))
+              <ul className="sailing-list">
+                {sailings.map((sailing, index) => (
+                  <SailingRow key={sailing.scheduledTime ?? index} sailing={sailing} />
+                ))}
+              </ul>
             ) : (
-              <p className="message">No sailings today on this route.</p>
+              <div className="sailing-list">
+                <p className="message">No sailings today on this route.</p>
+              </div>
             )}
           </section>
         ) : (
@@ -258,8 +282,9 @@ function SailingRow({ sailing }: { sailing: Sailing }) {
   const level = full ? 'full' : fill >= 80 ? 'busy' : 'open'
 
   return (
-    <div className={`sailing-row${full ? ' is-full' : ''}`}>
+    <li className={`sailing-row${full ? ' is-full' : ''}`}>
       <span className="sailing-time">{formatTime(sailing.scheduledTime)}</span>
+      <span className="sailing-vessel">{sailing.vesselName}</span>
       {sailing.capacityKnown ? (
         <span className="sailing-capacity">
           <span className="capacity-label">{full ? 'Full' : `${100 - fill}% space`}</span>
@@ -268,9 +293,11 @@ function SailingRow({ sailing }: { sailing: Sailing }) {
           </span>
         </span>
       ) : (
-        <span className="capacity-label">Capacity unavailable</span>
+        <span className="sailing-capacity">
+          <span className="capacity-label">Capacity unavailable</span>
+        </span>
       )}
-    </div>
+    </li>
   )
 }
 

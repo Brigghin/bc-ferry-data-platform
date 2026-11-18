@@ -87,18 +87,16 @@ def test_sailing_parse_uses_arrival_date_and_shared_capture_time() -> None:
 
 
 @pytest.mark.parametrize("scheduled_time", [None, "", "   "])
-def test_sailing_parse_rejects_missing_scheduled_time(scheduled_time) -> None:
-    """Reject records which do not have a usable unique key."""
-    with pytest.raises(ValueError):
-        sailing_parse([{
-            "serviceDate": "2026-11-10",
-            "scheduledTime": scheduled_time,
-        }])
+def test_sailing_parse_skips_missing_scheduled_time(scheduled_time) -> None:
+    """Skip records without a usable unique key instead of failing the refresh."""
+    assert not sailing_parse([{
+        "serviceDate": "2026-11-10",
+        "scheduledTime": scheduled_time,
+    }])
 
 
-@pytest.mark.anyio
 @respx.mock
-async def test_fetch_api_ferries_maps_capacity_feed() -> None:
+def test_fetch_api_ferries_maps_capacity_feed() -> None:
     """Map the upstream capacity feed into normalized route schemas."""
     respx.get(BASE_URL).mock(
         return_value=httpx.Response(
@@ -130,7 +128,7 @@ async def test_fetch_api_ferries_maps_capacity_feed() -> None:
         )
     )
 
-    routes = await fetch_api_ferries()
+    routes = fetch_api_ferries()
 
     assert len(routes) == 1
     assert routes[0].routeCode == "TSASWB"
@@ -139,8 +137,7 @@ async def test_fetch_api_ferries_maps_capacity_feed() -> None:
     assert routes[0].sailings[0].fill == 50
 
 
-@pytest.mark.anyio
-async def test_upload_and_fetch_round_trip(monkeypatch) -> None:
+def test_upload_and_fetch_round_trip(monkeypatch) -> None:
     """Store fetched route and sailing data and return it through the read path."""
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
@@ -170,7 +167,7 @@ async def test_upload_and_fetch_round_trip(monkeypatch) -> None:
         sailings=[sailing],
     )
 
-    async def fetch_routes():
+    def fetch_routes():
         return [route]
 
     monkeypatch.setattr(
@@ -180,7 +177,7 @@ async def test_upload_and_fetch_round_trip(monkeypatch) -> None:
 
     try:
         with Session(engine) as session:
-            assert await upload_ferries(session) == 1
+            assert upload_ferries(session) == 1
             sailing.actualDepartureTime = sailing.scheduledTime
             sailing.fill = 65
             assert sailing.scheduledTime is not None
@@ -188,7 +185,7 @@ async def test_upload_and_fetch_round_trip(monkeypatch) -> None:
                 update={"scheduledTime": sailing.scheduledTime + timedelta(hours=1)}
             )
             route.sailings.append(extra_sailing)
-            assert await upload_ferries(session) == 1
+            assert upload_ferries(session) == 1
             session.expire_all()
             stored_routes = fetch_storage_ferries(session, "TSA-SWB")
 
@@ -203,8 +200,7 @@ async def test_upload_and_fetch_round_trip(monkeypatch) -> None:
         engine.dispose()
 
 
-@pytest.mark.anyio
-async def test_upload_rolls_back_if_sailing_key_is_missing(monkeypatch) -> None:
+def test_upload_rolls_back_if_sailing_key_is_missing(monkeypatch) -> None:
     """Do not leave partial route data after a persistence error."""
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
@@ -229,7 +225,7 @@ async def test_upload_rolls_back_if_sailing_key_is_missing(monkeypatch) -> None:
         ],
     )
 
-    async def fetch_routes():
+    def fetch_routes():
         return [route]
 
     monkeypatch.setattr(
@@ -239,7 +235,7 @@ async def test_upload_rolls_back_if_sailing_key_is_missing(monkeypatch) -> None:
     try:
         with Session(engine) as session:
             with pytest.raises(ValueError, match="has no scheduled time"):
-                await upload_ferries(session)
+                upload_ferries(session)
             assert session.query(RouteModel).count() == 0
             assert session.query(SailingModel).count() == 0
     finally:

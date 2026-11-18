@@ -19,15 +19,21 @@ jobs:
       - name: Call refresh endpoint
         env:
           REFRESH_URL: ${{ vars.FERRY_REFRESH_URL }}
+          REFRESH_TOKEN: ${{ secrets.FERRY_REFRESH_TOKEN }}
         run: |
           if [ -z "$REFRESH_URL" ]; then
             echo "::error::Set the FERRY_REFRESH_URL repository variable to the refresh endpoint URL."
+            exit 1
+          fi
+          if [ -z "$REFRESH_TOKEN" ]; then
+            echo "::error::Set the FERRY_REFRESH_TOKEN repository secret to the backend's REFRESH_TOKEN."
             exit 1
           fi
 
           status=$(curl --fail-with-body --silent --show-error \
             --connect-timeout 15 --max-time 120 \
             --output /dev/null --write-out '%{http_code}' \
+            --header "X-Refresh-Token: $REFRESH_TOKEN" \
             --request POST "$REFRESH_URL")
           if [[ ! "$status" =~ ^2[0-9][0-9]$ ]]; then
             echo "::error::Refresh endpoint returned HTTP $status."

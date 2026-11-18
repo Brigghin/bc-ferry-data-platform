@@ -11,6 +11,7 @@ BASE_DIR = Path(__file__).resolve().parents[3]
 class Settings(BaseSettings):
     """Settings for the application, including database configuration."""
     database_url: str
+    refresh_token: str = ""  # empty means the refresh endpoint rejects every call
 
     model_config = SettingsConfigDict(
         env_file=BASE_DIR.parent / ".env.local",

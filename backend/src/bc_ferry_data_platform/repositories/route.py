@@ -1,24 +1,30 @@
 """Repository functions for managing ferry routes and sailings in the database."""
+from datetime import datetime, timezone
+
 from sqlalchemy import select
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from bc_ferry_data_platform.models.route import Route
 from bc_ferry_data_platform.models.sailing import Sailing
 
 
-def get_by_code(session: Session, route_code: str) -> Route | None:
-    """Retrieve a ferry route by its code, including its associated ferries."""
-    normalized_route_code = route_code.replace("-", "").strip().upper()
-    statement = (
-        select(Route)
-        .options(selectinload(Route.sailings))
-        .where(Route.routeCode == normalized_route_code)
-    )
-    return session.scalar(statement)
+def normalize_route_code(route_code: str) -> str:
+    """Turn route codes like 'tsa-swb ' into the stored form 'TSASWB'."""
+    return route_code.replace("-", "").strip().upper()
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    """Compare times in UTC; SQLite drops the offset, so naive values are stored UTC."""
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
+
 
 def get_or_add_route(session: Session, route: Route) -> Route:
     """Retrieve a ferry route by its code, or add it to the database if it doesn't exist."""
-    route.routeCode = route.routeCode.replace("-", "").strip().upper()
+    route.routeCode = normalize_route_code(route.routeCode)
     statement = select(Route).where(Route.routeCode == route.routeCode)
     stored_route = session.scalar(statement)
     if stored_route is None:
@@ -37,23 +43,29 @@ def add_sailing_history(
     sailings: list[Sailing],
 ) -> None:
     """Add or update sailing history for a specific ferry route."""
+    # One query per route: load stored sailings for the dates in this snapshot.
+    statement = (
+        select(Sailing)
+        .where(Sailing.routeCode == route_code)
+        .where(Sailing.serviceDate.in_({sailing.serviceDate for sailing in sailings}))
+    )
+    stored = {
+        (row.serviceDate, _as_utc(row.scheduledTime)): row
+        for row in session.scalars(statement)
+    }
     for sailing in sailings:
         if sailing.scheduledTime is None:
             raise ValueError(
                 f"Sailing for route {route_code} on {sailing.serviceDate} "
                 "has no scheduled time"
             )
-        statement = (
-            select(Sailing)
-            .where(Sailing.routeCode == route_code)
-            .where(Sailing.scheduledTime == sailing.scheduledTime)
-            .where(Sailing.serviceDate == sailing.serviceDate)
-        )
-        stored_sailing = session.scalar(statement)
+        sailing.scheduledTime = _as_utc(sailing.scheduledTime)
+        key = (sailing.serviceDate, sailing.scheduledTime)
+        stored_sailing = stored.get(key)
 
         if stored_sailing is None:
             session.add(sailing)
-            session.flush()
+            stored[key] = sailing
             continue
 
         if sailing.actualDepartureTime is not None:

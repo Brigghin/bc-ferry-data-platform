@@ -1,14 +1,41 @@
+:root {
+  --water: #e8f1f3;
+  --shoal: #c4dee6;
+  --ink: #0f2b3a;
+  --ink-soft: #46616d;
+  --channel: #1d6b74;
+  --buoy-amber: #c9821c;
+  --buoy-red: #b8402b;
+  --paper: #fbfdfd;
+  --chart-serif: "Newsreader", Georgia, serif;
+}
+
 .app-shell {
+  position: relative;
   min-height: 100vh;
-  padding: 0 16px 80px;
-  background: #f6f8f8;
-  color: #18343e;
+  padding: 0 16px 96px;
+  overflow-x: hidden;
+  background: var(--water);
+  color: var(--ink);
+}
+
+/* Depth contours, like soundings on a nautical chart */
+.contours {
+  position: absolute;
+  inset: 0 0 auto;
+  width: 100%;
+  height: 420px;
+  fill: none;
+  stroke: var(--shoal);
+  stroke-width: 1.2;
+  pointer-events: none;
 }
 
 .topbar,
 .main-content {
+  position: relative;
   width: 100%;
-  max-width: 640px;
+  max-width: 680px;
   margin: 0 auto;
 }
 
@@ -20,13 +47,14 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  color: var(--ink);
   text-decoration: none;
 }
 
 .brand-mark {
   width: 28px;
   height: 28px;
-  stroke: #1c6570;
+  stroke: var(--channel);
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -35,47 +63,51 @@
 .brand-name {
   font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.5px;
-  color: #18343e;
-}
-
-.brand-name span {
-  color: #258d8b;
+  letter-spacing: -0.02em;
 }
 
 .main-content {
   display: flex;
   flex-direction: column;
-  gap: 40px;
-  padding-top: 96px;
+  gap: 36px;
+  padding-top: 88px;
 }
 
 h1 {
   margin: 0;
-  font-size: 40px;
-  line-height: 1.1;
-  font-weight: 700;
-  letter-spacing: -1.2px;
+  font-family: var(--chart-serif);
+  font-style: italic;
+  font-weight: 400;
+  font-size: clamp(40px, 8vw, 60px);
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: var(--ink);
 }
 
+/* Route picker: a solid "land" panel floating on the chart */
 .selectors {
   display: flex;
   flex-wrap: wrap;
   align-items: flex-end;
   gap: 12px;
+  padding: 20px;
+  background: var(--paper);
+  border: 1px solid var(--shoal);
+  border-radius: 16px;
+  box-shadow: 0 12px 32px -18px rgb(15 43 58 / 0.35);
 }
 
 .field {
-  flex: 1 1 220px;
+  flex: 1 1 200px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .field-label {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  color: #4a636b;
+  color: var(--ink-soft);
 }
 
 .select-wrap {
@@ -85,31 +117,35 @@ h1 {
 
 .select-wrap select {
   width: 100%;
-  height: 56px;
-  padding: 0 44px 0 16px;
+  height: 54px;
+  padding: 0 44px 0 14px;
   font-size: 17px;
   font-weight: 500;
-  color: #18343e;
-  background: #fff;
-  border: 1px solid #d5dfe0;
-  border-radius: 12px;
+  color: var(--ink);
+  background: var(--water);
+  border: 1px solid transparent;
+  border-radius: 10px;
   appearance: none;
   cursor: pointer;
 }
 
+.select-wrap select:hover:not(:disabled) {
+  border-color: var(--shoal);
+}
+
 .select-wrap select:disabled {
-  color: #6b7f85;
-  background: #f0f4f4;
+  color: var(--ink-soft);
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
 .select-chevron {
   position: absolute;
-  top: 20px;
-  right: 16px;
+  top: 19px;
+  right: 14px;
   width: 16px;
   height: 16px;
-  stroke: #4a636b;
+  stroke: var(--ink-soft);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -119,23 +155,23 @@ h1 {
 .swap-button {
   flex: 0 0 auto;
   width: 48px;
-  height: 56px;
+  height: 54px;
   display: grid;
   place-items: center;
   padding: 0;
-  color: #1c6570;
+  color: var(--channel);
   background: transparent;
   border: 0;
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
 }
 
 .swap-button:hover:not(:disabled) {
-  background: #e7f2f2;
+  background: var(--water);
 }
 
 .swap-button:disabled {
-  color: #a9b8bb;
+  color: var(--shoal);
   cursor: not-allowed;
 }
 
@@ -149,65 +185,148 @@ h1 {
 }
 
 select:focus-visible,
-button:focus-visible {
-  outline: 2px solid #1c6570;
+button:focus-visible,
+.brand:focus-visible {
+  outline: 2px solid var(--channel);
   outline-offset: 2px;
+}
+
+/* The crossing: origin and destination joined by a drawn course line */
+.crossing {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 14px;
+  font-family: var(--chart-serif);
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1.2;
+}
+
+.crossing-course {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 72px;
+}
+
+.crossing-course svg {
+  width: 100%;
+  height: 12px;
+  overflow: visible;
+  stroke: var(--channel);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.crossing-course line {
+  stroke-dasharray: 5 5;
+  animation: chart-course 900ms ease-out both;
+}
+
+.crossing-course circle {
+  fill: var(--channel);
+  stroke: none;
+}
+
+.crossing-duration {
+  position: absolute;
+  top: -22px;
+  font-family: "Schibsted Grotesk", sans-serif;
+  font-style: normal;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--channel);
+  white-space: nowrap;
+}
+
+@keyframes chart-course {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crossing-course line {
+    animation: none;
+  }
 }
 
 .sailings {
   display: flex;
   flex-direction: column;
+  gap: 16px;
 }
 
 .sailings-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e1e8e9;
-  font-size: 13px;
-  font-weight: 600;
-  color: #4a636b;
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+
+.sailing-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  background: var(--paper);
+  border: 1px solid var(--shoal);
+  border-radius: 16px;
 }
 
 .sailing-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 7.5rem 1fr auto;
   align-items: center;
-  justify-content: space-between;
   gap: 16px;
-  padding: 18px 0;
-  border-bottom: 1px solid #e1e8e9;
+  padding: 16px 20px;
+}
+
+.sailing-row + .sailing-row {
+  border-top: 1px solid var(--water);
 }
 
 .sailing-row.is-full {
-  color: #6b7f85;
+  color: var(--ink-soft);
 }
 
 .sailing-time {
-  font-size: 20px;
+  font-size: 21px;
   font-weight: 600;
-  letter-spacing: -0.4px;
+  letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
+}
+
+.sailing-vessel {
+  font-family: var(--chart-serif);
+  font-style: italic;
+  font-size: 17px;
+  color: var(--ink-soft);
 }
 
 .sailing-capacity {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 12px;
 }
 
 .capacity-label {
   font-size: 14px;
-  color: #4a636b;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+  white-space: nowrap;
 }
 
 .capacity-meter {
   display: block;
-  width: 80px;
+  width: 72px;
   height: 6px;
   overflow: hidden;
   border-radius: 3px;
-  background: #e1e8e9;
+  background: var(--water);
 }
 
 .capacity-meter span {
@@ -217,26 +336,31 @@ button:focus-visible {
 }
 
 .capacity-open {
-  background: #1c6570;
+  background: var(--channel);
 }
 
 .capacity-busy {
-  background: #c97a1e;
+  background: var(--buoy-amber);
 }
 
 .capacity-full {
-  background: #b4540f;
+  background: var(--buoy-red);
+}
+
+.is-full .capacity-label {
+  font-weight: 600;
+  color: var(--buoy-red);
 }
 
 .hint,
 .message {
   margin: 0;
-  font-size: 15px;
-  color: #4a636b;
+  font-size: 16px;
+  color: var(--ink-soft);
 }
 
-.message {
-  padding-top: 18px;
+.sailing-list .message {
+  padding: 20px;
 }
 
 div.message {
@@ -253,18 +377,40 @@ div.message p {
 .text-button {
   padding: 0;
   font-weight: 600;
-  color: #1c6570;
+  color: var(--channel);
   background: none;
   border: 0;
+  text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
 }
 
-@media (max-width: 520px) {
+@media (max-width: 560px) {
   .main-content {
     padding-top: 56px;
   }
 
-  h1 {
-    font-size: 32px;
+  .selectors {
+    padding: 16px;
+  }
+
+  .crossing {
+    font-size: 19px;
+  }
+
+  .sailing-row {
+    grid-template-columns: 1fr auto;
+    row-gap: 2px;
+    padding: 14px 16px;
+  }
+
+  .sailing-vessel {
+    grid-row: 2;
+    font-size: 15px;
+  }
+
+  .sailing-capacity {
+    grid-row: 1 / span 2;
+    grid-column: 2;
   }
 }
