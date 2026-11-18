@@ -16,6 +16,7 @@ from bc_ferry_data_platform.services.ferries import (
     BASE_URL,
     fetch_api_ferries,
     fetch_storage_ferries,
+    format_duration,
     parse_bc_time,
     parse_utc,
     sailing_parse,
@@ -25,6 +26,16 @@ from bc_ferry_data_platform.schemas.ferries import Route as RouteSchema
 from bc_ferry_data_platform.schemas.ferries import Sailing as SailingSchema
 
 BC_TIMEZONE = ZoneInfo("America/Vancouver")
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("01:35", "1h 35m"), ("0h 40m", "40m"), ("2h 0m", "2h"), ("1h 50m", "1h 50m"),
+     ("00:00", ""), ("", "")],
+)
+def test_format_duration_normalizes_upstream_formats(value: str, expected: str) -> None:
+    """Show every route's crossing time in one style."""
+    assert format_duration(value) == expected
 
 
 def test_parse_bc_time_combines_service_date_and_local_time() -> None:
@@ -107,7 +118,7 @@ def test_fetch_api_ferries_maps_capacity_feed() -> None:
                         "routeCode": "TSA-SWB",
                         "fromTerminalCode": "tsa",
                         "toTerminalCode": "swb",
-                        "sailingDuration": "1h 35m",
+                        "sailingDuration": "",
                         "sailings": [
                             {
                                 "serviceDate": "2026-11-10",
@@ -123,7 +134,10 @@ def test_fetch_api_ferries_maps_capacity_feed() -> None:
                             }
                         ],
                     }
-                ]
+                ],
+                "nonCapacityRoutes": [
+                    {"routeCode": "TSASWB", "sailingDuration": "01:35"},
+                ],
             },
         )
     )
@@ -135,6 +149,7 @@ def test_fetch_api_ferries_maps_capacity_feed() -> None:
     assert routes[0].fromTerminalCode == "TSA"
     assert routes[0].toTerminalCode == "SWB"
     assert routes[0].sailings[0].fill == 50
+    assert routes[0].sailingDuration == "1h 35m"
 
 
 def test_upload_and_fetch_round_trip(monkeypatch) -> None:

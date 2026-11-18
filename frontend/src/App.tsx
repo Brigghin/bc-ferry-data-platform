@@ -39,6 +39,8 @@ const terminalNames: Record<string, string> = {
   NAN: 'Departure Bay (Nanaimo)',
   LNG: 'Langdale (Sunshine Coast)',
   BOW: 'Snug Cove (Bowen Island)',
+  FUL: 'Fulford Harbour (Salt Spring Island)',
+  SGI: 'Southern Gulf Islands',
 }
 
 function terminalName(code: string): string {
@@ -60,13 +62,26 @@ function getTodayInBCTime(): string {
   return `${part('year')}-${part('month')}-${part('day')}`
 }
 
+function formatServiceDate(serviceDate: string): string {
+  // serviceDate is a plain calendar date, so format it in UTC to avoid shifting the day.
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'UTC',
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  }).format(new Date(serviceDate))
+}
+
 function formatTime(value: string | null): string {
   if (!value) return '—'
-  return new Intl.DateTimeFormat('en-CA', {
+  // en-US gives the compact "7:05 AM" rather than en-CA's "7:05 a.m."
+  return new Intl.DateTimeFormat('en-US', {
     timeZone,
     hour: 'numeric',
     minute: '2-digit',
-  }).format(new Date(value))
+  })
+    .format(new Date(value))
+    .replace(/\s/, ' ') // keep "7:05 AM" on one line
 }
 
 function App() {
@@ -255,13 +270,27 @@ function App() {
               </span>
               <span>{shortTerminalName(destination)}</span>
             </p>
-            <p className="sailings-header">Today’s sailings, Pacific time</p>
+            <p className="sailings-header">
+              {formatServiceDate(getTodayInBCTime())}, Pacific time
+            </p>
             {sailings.length > 0 ? (
-              <ul className="sailing-list">
-                {sailings.map((sailing, index) => (
-                  <SailingRow key={sailing.scheduledTime ?? index} sailing={sailing} />
-                ))}
-              </ul>
+              <div className="sailing-list">
+                <table className="sailing-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">Departure</th>
+                      <th scope="col">Arrival</th>
+                      <th scope="col">Ferry</th>
+                      <th scope="col" className="col-space">Full</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sailings.map((sailing, index) => (
+                      <SailingRow key={sailing.scheduledTime ?? index} sailing={sailing} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <div className="sailing-list">
                 <p className="message">No sailings today on this route.</p>
@@ -278,26 +307,42 @@ function App() {
 
 function SailingRow({ sailing }: { sailing: Sailing }) {
   const fill = Math.min(Math.max(sailing.fill, 0), 100)
-  const full = sailing.capacityKnown && fill >= 100
+  // shortcut: upstream sends fill 0 when capacity was never reported, so a true 0% fill
+  // reads as unknown; add a backend "fill captured" flag if that matters.
+  const hasFill = sailing.capacityKnown || fill > 0
+  const full = hasFill && fill >= 100
   const level = full ? 'full' : fill >= 80 ? 'busy' : 'open'
+  const departure = sailing.actualDepartureTime ?? sailing.scheduledTime
+  const arrived = sailing.status === 'arrived'
+  const rowClass = ['sailing-row', full && 'is-full', arrived && 'is-arrived']
+    .filter(Boolean)
+    .join(' ')
 
   return (
-    <li className={`sailing-row${full ? ' is-full' : ''}`}>
-      <span className="sailing-time">{formatTime(sailing.scheduledTime)}</span>
-      <span className="sailing-vessel">{sailing.vesselName}</span>
-      {sailing.capacityKnown ? (
-        <span className="sailing-capacity">
-          <span className="capacity-label">{full ? 'Full' : `${100 - fill}% space`}</span>
-          <span className="capacity-meter">
-            <span className={`capacity-${level}`} style={{ width: `${fill}%` }} />
+    <tr className={rowClass}>
+      <td>
+        <span className="sailing-time">{formatTime(departure)}</span>
+        {departure !== sailing.scheduledTime && (
+          <span className="sailing-detail">Scheduled {formatTime(sailing.scheduledTime)}</span>
+        )}
+      </td>
+      <td className="sailing-arrival">{formatTime(sailing.actualArrivalTime)}</td>
+      <td className="sailing-vessel">{sailing.vesselName}</td>
+      <td>
+        {hasFill ? (
+          <span className="sailing-capacity">
+            <span className="capacity-label">{`${fill}%`}</span>
+            <span className="capacity-meter">
+              <span className={`capacity-${level}`} style={{ width: `${fill}%` }} />
+            </span>
           </span>
-        </span>
-      ) : (
-        <span className="sailing-capacity">
-          <span className="capacity-label">Capacity unavailable</span>
-        </span>
-      )}
-    </li>
+        ) : (
+          <span className="sailing-capacity">
+            <span className="capacity-label">Unavailable</span>
+          </span>
+        )}
+      </td>
+    </tr>
   )
 }
 
