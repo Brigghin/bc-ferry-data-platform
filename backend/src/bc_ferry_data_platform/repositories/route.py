@@ -33,7 +33,8 @@ def get_or_add_route(session: Session, route: Route) -> Route:
         return route
     stored_route.fromTerminalCode = route.fromTerminalCode
     stored_route.toTerminalCode = route.toTerminalCode
-    stored_route.sailingDuration = route.sailingDuration
+    if route.sailingDuration:  # the feed sometimes blanks it; keep the last known value
+        stored_route.sailingDuration = route.sailingDuration
     return stored_route
 
 

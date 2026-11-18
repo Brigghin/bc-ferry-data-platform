@@ -41,6 +41,14 @@ def parse_bc_time(service_date: str | date, value: str | None) -> datetime | Non
     t = datetime.strptime(value.strip().upper(), "%I:%M %p").time()
     return datetime.combine(service_date, t, tzinfo=BC_TIMEZONE)
 
+def format_duration(value: str) -> str:
+    """Normalize upstream durations ('01:35', '0h 40m', '2h 0m') to '1h 35m', '40m', '2h'."""
+    match = re.fullmatch(r"(\d+):(\d+)", value.strip())
+    if match:
+        value = f"{int(match[1])}h {int(match[2])}m"
+    value = value.strip().removeprefix("0h ")
+    return value.removesuffix(" 0m") if value != "0m" else ""
+
 def sailing_parse(
     sailing_list: list[dict[str, Any]],  # List of sailing-time records from the API
     captured_at: datetime | None = None,
@@ -86,12 +94,21 @@ def fetch_api_ferries() -> list[RouteSchema]:
         # List of FerryRoute Objects each with their own list of FerryInfo Objects
         results: list[RouteSchema] = []
         captured_at = datetime.now(timezone.utc)
+        # Capacity routes often send a blank duration; the schedule list usually has it.
+        fallback_durations = {
+            normalize_route_code(route["routeCode"]): route.get("sailingDuration") or ""
+            for route in data.get("nonCapacityRoutes", [])
+            if route.get("routeCode")
+        }
         for ferry_route in data["capacityRoutes"]: #Iterating through the routes + sailings from API
             parsed_route = RouteSchema(
                 routeCode=normalize_route_code(ferry_route["routeCode"]),
                 fromTerminalCode=ferry_route["fromTerminalCode"].upper(),
                 toTerminalCode=ferry_route["toTerminalCode"].upper(),
-                sailingDuration=ferry_route["sailingDuration"],
+                sailingDuration=format_duration(
+                    ferry_route.get("sailingDuration")
+                    or fallback_durations.get(normalize_route_code(ferry_route["routeCode"]), "")
+                ),
                 sailings=sailing_parse(
                     ferry_route["sailings"], captured_at
                 ) #Formatted list of sailings for each route

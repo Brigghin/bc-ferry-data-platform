@@ -183,3 +183,8 @@ def test_get_or_add_route_normalizes_code_and_updates_route_details(
     assert result.id == first_route.id
     assert result.routeCode == "TSASWB"
     assert result.sailingDuration == "1h 40m"
+
+    blank_route = Route(
+        routeCode="TSASWB", fromTerminalCode="TSA", toTerminalCode="SWB", sailingDuration=""
+    )
+    assert get_or_add_route(db_session, blank_route).sailingDuration == "1h 40m"
