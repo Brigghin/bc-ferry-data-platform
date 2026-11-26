@@ -84,16 +84,28 @@ function formatTime(value: string | null): string {
     .replace(/\s/, ' ') // keep "7:05 AM" on one line
 }
 
+// sailingDuration comes from the backend as '1h 35m', '40m', '2h' or ''
+function addDuration(start: string | null, duration: string): string | null {
+  const minutes =
+    Number(duration.match(/(\d+)h/)?.[1] ?? 0) * 60 + Number(duration.match(/(\d+)m/)?.[1] ?? 0)
+  if (!start || !minutes) return null
+  return new Date(new Date(start).getTime() + minutes * 60_000).toISOString()
+}
+
 function App() {
   const [routes, setRoutes] = useState<FerryRoute[]>([])
   const [loading, setLoading] = useState(true)
+  const [slow, setSlow] = useState(false)
   const [error, setError] = useState('')
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
   const [reloadCount, setReloadCount] = useState(0)
+  const [day, setDay] = useState('')
 
   useEffect(() => {
     const controller = new AbortController()
+    // a cold-starting backend can take a minute; only mention it if the load is slow
+    const slowTimer = setTimeout(() => setSlow(true), 3000)
 
     async function loadSchedule() {
       setLoading(true)
@@ -115,12 +127,19 @@ function App() {
             : 'The sailing schedule could not be loaded.',
         )
       } finally {
-        if (!controller.signal.aborted) setLoading(false)
+        clearTimeout(slowTimer)
+        if (!controller.signal.aborted) {
+          setLoading(false)
+          setSlow(false)
+        }
       }
     }
 
     void loadSchedule()
-    return () => controller.abort()
+    return () => {
+      clearTimeout(slowTimer)
+      controller.abort()
+    }
   }, [reloadCount])
 
   const origins = useMemo(
@@ -150,15 +169,19 @@ function App() {
 
   const sailings = useMemo(() => {
     if (!selectedRoute) return []
-    const today = getTodayInBCTime()
-    return selectedRoute.sailings
-      .filter((sailing) => sailing.serviceDate === today)
-      .sort((a, b) => {
-        if (!a.scheduledTime) return 1
-        if (!b.scheduledTime) return -1
-        return a.scheduledTime.localeCompare(b.scheduledTime)
-      })
+    return [...selectedRoute.sailings].sort((a, b) => {
+      if (!a.scheduledTime) return 1
+      if (!b.scheduledTime) return -1
+      return a.scheduledTime.localeCompare(b.scheduledTime)
+    })
   }, [selectedRoute])
+
+  const sailingDays = [...new Set(sailings.map((sailing) => sailing.serviceDate))]
+  // falls back to the first day when the chosen one isn't in this route's data
+  const shownDay = sailingDays.includes(day) ? day : sailingDays[0]
+  const dayIndex = sailingDays.indexOf(shownDay)
+  const prevDay = sailingDays[dayIndex - 1]
+  const nextDay = sailingDays[dayIndex + 1]
 
   function chooseOrigin(code: string) {
     setOrigin(code)
@@ -257,7 +280,7 @@ function App() {
             </button>
           </div>
         ) : selectedRoute ? (
-          <section className="sailings" aria-label="Today's sailings" aria-live="polite">
+          <section className="sailings" aria-label="Sailings" aria-live="polite">
             <p className="crossing" key={selectedRoute.routeCode + origin}>
               <span>{shortTerminalName(origin)}</span>
               <span className="crossing-course">
@@ -270,51 +293,82 @@ function App() {
               </span>
               <span>{shortTerminalName(destination)}</span>
             </p>
-            <p className="sailings-header">
-              {formatServiceDate(getTodayInBCTime())}, Pacific time
-            </p>
             {sailings.length > 0 ? (
-              <div className="sailing-list">
-                <table className="sailing-table">
-                  <thead>
-                    <tr>
-                      <th scope="col">Departure</th>
-                      <th scope="col">Arrival</th>
-                      <th scope="col">Ferry</th>
-                      <th scope="col" className="col-space">Full</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sailings.map((sailing, index) => (
-                      <SailingRow key={sailing.scheduledTime ?? index} sailing={sailing} />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <p className="sailings-header">
+                  <button className="text-button day-button" type="button" aria-label="Previous day"
+                    disabled={!prevDay} onClick={() => setDay(prevDay)}>‹</button>
+                  {formatServiceDate(shownDay)}, Pacific time
+                  <button className="text-button day-button" type="button" aria-label="Next day"
+                    disabled={!nextDay} onClick={() => setDay(nextDay)}>›</button>
+                </p>
+                <div className="sailing-list">
+                  <table className="sailing-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Departure</th>
+                        <th scope="col">Arrival</th>
+                        <th scope="col">Ferry</th>
+                        <th scope="col" className="col-space">Full</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sailings
+                        .filter((sailing) => sailing.serviceDate === shownDay)
+                        .map((sailing, index) => (
+                          <SailingRow
+                            key={sailing.scheduledTime ?? index}
+                            sailing={sailing}
+                            sailingDuration={selectedRoute.sailingDuration}
+                          />
+                        ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             ) : (
-              <div className="sailing-list">
-                <p className="message">No sailings today on this route.</p>
-              </div>
+              <>
+                <p className="sailings-header">{formatServiceDate(getTodayInBCTime())}, Pacific time</p>
+                <div className="sailing-list">
+                  <p className="message">No upcoming sailings on this route.</p>
+                </div>
+              </>
             )}
           </section>
         ) : (
-          !loading && <p className="hint">Pick both ends of your trip to see today’s sailings.</p>
+          loading ? (
+            slow && (
+              <p className="hint" role="status">
+                Waking up the server. The first load can take up to a minute.
+              </p>
+            )
+          ) : (
+            <p className="hint">Pick both ends of your trip to see upcoming sailings.</p>
+          )
         )}
       </main>
     </div>
   )
 }
 
-function SailingRow({ sailing }: { sailing: Sailing }) {
-  const fill = Math.min(Math.max(sailing.fill, 0), 100)
+function SailingRow({ sailing, sailingDuration }: { sailing: Sailing; sailingDuration: string }) {
+  const cancelled = sailing.status === 'cancelled'
+  const fill = cancelled ? 0 : Math.min(Math.max(sailing.fill, 0), 100)
   // shortcut: upstream sends fill 0 when capacity was never reported, so a true 0% fill
   // reads as unknown; add a backend "fill captured" flag if that matters.
-  const hasFill = sailing.capacityKnown || fill > 0
+  const hasFill = cancelled || sailing.capacityKnown || fill > 0
   const full = hasFill && fill >= 100
   const level = full ? 'full' : fill >= 80 ? 'busy' : 'open'
   const departure = sailing.actualDepartureTime ?? sailing.scheduledTime
-  const arrived = sailing.status === 'arrived'
-  const rowClass = ['sailing-row', full && 'is-full', arrived && 'is-arrived']
+  const eta =
+    sailing.actualArrivalTime || cancelled
+      ? null
+      : addDuration(departure, sailingDuration)
+  // upstream never marks some routes (e.g. Swartz Bay departures) arrived, so a passed ETA counts
+  const arrived =
+    sailing.status === 'arrived' ||
+    (sailing.status === 'departed' && eta !== null && new Date(eta).getTime() < Date.now())
+  const rowClass = ['sailing-row', full && 'is-full', arrived && 'is-arrived', cancelled && 'is-cancelled']
     .filter(Boolean)
     .join(' ')
 
@@ -325,8 +379,12 @@ function SailingRow({ sailing }: { sailing: Sailing }) {
         {departure !== sailing.scheduledTime && (
           <span className="sailing-detail">Scheduled {formatTime(sailing.scheduledTime)}</span>
         )}
+        {cancelled && <span className="sailing-detail sailing-cancelled">Cancelled</span>}
       </td>
-      <td className="sailing-arrival">{formatTime(sailing.actualArrivalTime)}</td>
+      <td className="sailing-arrival">
+        {eta && <span className="sailing-detail">ETA</span>}
+        {formatTime(sailing.actualArrivalTime ?? eta)}
+      </td>
       <td className="sailing-vessel">{sailing.vesselName}</td>
       <td>
         {hasFill ? (

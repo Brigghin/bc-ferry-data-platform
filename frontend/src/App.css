@@ -460,14 +460,34 @@ button:focus-visible,
   color: var(--buoy-red);
 }
 
-/* Arrived sailings: the space figure is history, so grey it out */
-.is-arrived .capacity-label {
+/* Arrived and cancelled sailings: grey out the whole row */
+.sailing-row.is-arrived,
+.sailing-row.is-cancelled,
+.is-arrived .sailing-detail,
+.is-cancelled .sailing-detail,
+.is-arrived .sailing-vessel,
+.is-cancelled .sailing-vessel {
+  color: var(--muted);
+}
+
+.is-arrived .capacity-label,
+.is-cancelled .capacity-label {
   font-weight: 400;
   color: var(--muted);
 }
 
-.is-arrived .capacity-meter span {
+.is-arrived .capacity-meter span,
+.is-cancelled .capacity-meter span {
   background: var(--muted-meter);
+}
+
+.is-cancelled .sailing-time {
+  text-decoration: line-through;
+}
+
+.is-cancelled .sailing-cancelled {
+  font-weight: 600;
+  color: var(--buoy-red);
 }
 
 .hint,
@@ -501,6 +521,17 @@ div.message p {
   text-decoration: underline;
   text-underline-offset: 3px;
   cursor: pointer;
+}
+
+.day-button {
+  padding: 0 8px;
+  font-size: 1.25em;
+  text-decoration: none;
+}
+
+.day-button:disabled {
+  opacity: 0.3;
+  cursor: default;
 }
 
 @media (max-width: 560px) {
