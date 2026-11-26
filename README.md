@@ -2,7 +2,7 @@
 
 A full-stack app that collects BC Ferries sailing data and shows it in a web app ("Coastline"), with automated CI, releases, container builds and dependency updates.
 
-- **Frontend:** React + Vite on a Render static site.
+- **Frontend:** React + Vite on a Render static site at <https://bc-ferry-data-platform-frontend.onrender.com>.
 - **Backend:** FastAPI (managed with uv, packaged with Docker) on a Render web service at `https://bc-ferry-data-platform.onrender.com`.
 - **Database:** [Neon](https://neon.com) serverless Postgres, with branch settings managed in `neon.ts`.
 
