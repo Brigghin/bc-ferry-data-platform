@@ -21,6 +21,12 @@ jobs:
   hadolint:
     name: Hadolint
     uses: ./.github/workflows/hadolint.yaml
+  claude-fix:
+    name: Claude CI fix
+    needs: [pytest, pylint, eslint, hadolint]
+    if: failure() && github.event.pull_request.head.repo.full_name == github.repository
+    uses: ./.github/workflows/claude-ci-fix.yml
+    secrets: inherit
   result:
     name: CI result
     runs-on: ubuntu-latest
