@@ -1,4 +1,4 @@
-# BC Ferry Data Platform (WIP)
+# BC Ferry Data Platform
 
 A full-stack app that collects BC Ferries sailing data and shows it in a web app ("Coastline"), with automated CI, releases, container builds and dependency updates.
 
