@@ -21,9 +21,10 @@ Everything below lives in this repository.
 
 - **CI on pull requests.** `CI.yaml` runs Pytest, Pylint, ESLint, and Hadolint as reusable workflows, then an aggregate **CI result** job that fails unless all four succeeded. Mark that single check as required in branch protection.
 - **PR result comments.** `CI-comment.yaml` runs on `workflow_run` after CI, downloads the check outputs as artifacts, and comments a truncated excerpt per check. It never checks out or executes pull request code.
-- **Container image.** The `Dockerfile` is multi-stage (build stage with a `uv sync --locked` install, slim runtime stage), pins the base image (`python:3.15.2-slim-trixie`) and uv (`0.12.15`), and runs as a non-root user (uid 10001). `Docker-build.yaml` builds it and pushes `bc-ferry-data-platform:latest` to Docker Hub on pushes to `main`, skipping Release Please release commits.
+- **Container image.** The `Dockerfile` is multi-stage (build stage with a `uv sync --locked` install, slim runtime stage), pins the base image (`python:3.15.2-slim-trixie`) and uv (`0.12.15`), and runs as a non-root user (uid 10001). Render builds and deploys the backend from this `Dockerfile`; Hadolint checks it in CI.
 - **Releases.** `release-please.yml` runs Release Please on `main` using a GitHub App token (so its pull requests trigger CI), driven by [Conventional Commits](https://www.conventionalcommits.org/). It requests squash auto-merge on the release PR it opens; the merge itself waits for the required checks.
 - **Dependency updates.** Dependabot covers Docker, GitHub Actions, uv (backend), and npm (frontend). `Dependabot-auto.yaml` requests squash auto-merge on its pull requests; with **CI result** required, they merge only once CI passes.
+- **Security scanning.** GitHub code scanning (CodeQL) and secret scanning are enabled on the repository, alongside the lint checks in CI.
 - **Data refresh.** cron-job.org calls the token-protected `POST /ferries/refresh` every 10 minutes. `refresh-ferries.yaml` is a manual (`workflow_dispatch`) fallback that calls the same endpoint with the same header.
 - **Database branches.** `neon.ts` gives new non-default Neon branches a 7-day TTL so they clean themselves up; the default branch is left alone.
 
