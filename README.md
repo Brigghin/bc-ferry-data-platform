@@ -1,20 +1,37 @@
 # BC Ferry Data Platform (WIP)
 
-This is a learning project for exploring Python API development with FastAPI, dependency management with uv, Docker, and release automation. The backend currently retrieves and serves BC Ferries sailing schedules from the BC Ferries API.
+A full-stack app that collects BC Ferries sailing data and shows it in a web app ("Coastline"), with automated CI, releases, container builds and dependency updates.
 
-## Repository layout
+- **Frontend:** React + Vite on a Render static site.
+- **Backend:** FastAPI (managed with uv, packaged with Docker) on a Render web service at `https://bc-ferry-data-platform.onrender.com`.
+- **Database:** [Neon](https://neon.com) serverless Postgres, with branch settings managed in `neon.ts`.
 
-- `backend/` contains the Python API service, its dependencies, and backend-specific documentation.
-- `DockerFile` defines a container image for the backend.
-- `.github/workflows/release-please.yml` runs Release Please on pushes to `main`.
+## How it works
 
-For endpoint details and an example response, see the [backend README](backend/README.md).
+1. The [BC Ferries API](https://www.bcferriesapi.ca/v2/) is the upstream data source.
+2. An external cron service ([cron-job.org](https://cron-job.org)) calls `POST /ferries/refresh` every 10 minutes, sending the `X-Refresh-Token` header.
+3. The backend fetches the upstream data and stores it in a Neon Postgres database.
+4. The frontend reads it from `GET /ferries/`.
 
-## Run the backend locally
+The backend runs on Render's free tier, so it sleeps when idle and a cold start can take up to about a minute.
 
-Requirements: Python 3.14 and [uv](https://docs.astral.sh/uv/).
+## Automation
 
-From the repository root:
+Everything below lives in this repository.
+
+- **CI on pull requests.** `CI.yaml` runs Pytest, Pylint, ESLint, and Hadolint as reusable workflows, then an aggregate **CI result** job that fails unless all four succeeded. Mark that single check as required in branch protection.
+- **PR result comments.** `CI-comment.yaml` runs on `workflow_run` after CI, downloads the check outputs as artifacts, and comments a truncated excerpt per check. It never checks out or executes pull request code.
+- **Container image.** The `Dockerfile` is multi-stage (build stage with a `uv sync --locked` install, slim runtime stage), pins the base image (`python:3.15.2-slim-trixie`) and uv (`0.12.15`), and runs as a non-root user (uid 10001). `Docker-build.yaml` builds it and pushes `bc-ferry-data-platform:latest` to Docker Hub on pushes to `main`, skipping Release Please release commits.
+- **Releases.** `release-please.yml` runs Release Please on `main` using a GitHub App token (so its pull requests trigger CI), driven by [Conventional Commits](https://www.conventionalcommits.org/). It requests squash auto-merge on the release PR it opens; the merge itself waits for the required checks.
+- **Dependency updates.** Dependabot covers Docker, GitHub Actions, uv (backend), and npm (frontend). `Dependabot-auto.yaml` requests squash auto-merge on its pull requests; with **CI result** required, they merge only once CI passes.
+- **Data refresh.** cron-job.org calls the token-protected `POST /ferries/refresh` every 10 minutes. `refresh-ferries.yaml` is a manual (`workflow_dispatch`) fallback that calls the same endpoint with the same header.
+- **Database branches.** `neon.ts` gives new non-default Neon branches a 7-day TTL so they clean themselves up; the default branch is left alone.
+
+## Run locally
+
+Requirements: Python 3.11 or newer with [uv](https://docs.astral.sh/uv/) for the backend, and Node.js with npm for the frontend.
+
+Backend, from the repository root:
 
 ```sh
 cd backend
@@ -22,29 +39,14 @@ uv sync --locked
 uv run fastapi dev
 ```
 
-The API is available at <http://127.0.0.1:8000>. Interactive API documentation is available at <http://127.0.0.1:8000/docs>.
+The API is available at <http://127.0.0.1:8000>, with interactive docs at <http://127.0.0.1:8000/docs>. See the [backend README](backend/README.md) for configuration and endpoints.
 
-## Releases
+Frontend, from the repository root:
 
-Release Please runs on pushes to `main` and creates or updates a release pull request based on [Conventional Commit](https://www.conventionalcommits.org/) messages. For example, `fix: correct sailing time parsing` indicates a patch-level change, while `feat: add route filtering` indicates a minor change.
+```sh
+cd frontend
+npm ci
+npm run dev
+```
 
-Release pull requests are configured for squash auto-merge after required checks and reviews pass. The App token lets Release Please trigger CI on its pull requests and lets the merged release trigger the workflow that creates the GitHub release. The **CI result** check must remain required; otherwise a release could merge before CI finishes.
-
-Before merging the App-based workflow, create and configure a GitHub App:
-
-1. Open [GitHub App settings](https://github.com/settings/apps), select **New GitHub App**, and choose a unique name. Use your repository URL as the homepage, turn off **Active** under Webhook, and choose **Only on this account**.
-2. Under **Repository permissions**, grant **Contents: Read and write**, **Issues: Read and write**, and **Pull requests: Read and write**. Leave other permissions at their defaults, then create the App.
-3. On the App's settings page, copy its **Client ID**. Generate and download a private key, and keep it private.
-4. Select **Install App**, install it on your account, and grant access to this repository.
-5. In this repository, open **Settings > Secrets and variables > Actions**. Under **Variables**, add `RELEASE_PLEASE_APP_CLIENT_ID` with the Client ID. Under **Secrets**, add `RELEASE_PLEASE_APP_PRIVATE_KEY` with the entire contents of the downloaded private key file. Do not commit the key.
-6. Merge the workflow change into `main`. The workflow also supports manual execution from the Actions tab. Confirm that a release PR runs CI, enables auto-merge, and creates a GitHub release after merging.
-
-Without these App credentials and installation, Release Please will fail rather than create releases. GitHub may require an approval before running CI for a new App's first pull request. Required reviews and branch rules still apply; the workflow does not bypass them.
-
-## Dependabot auto-merge
-
-The Dependabot workflow requests squash auto-merge for Dependabot pull requests targeting `main`; it does not approve them. Before enabling the workflow, enable auto-merge in repository settings and configure branch protection or a ruleset for `main` to require **CI result**. This aggregate check passes only if Pytest, Pylint, ESLint, and Hadolint all pass. Auto-merge only waits for required checks and reviews; without that rule, a pull request could merge before tests finish. Replace any previous required check names with the new reusable-workflow check names or the aggregate **CI result** check.
-
-The CI workflow runs these checks on pull requests to `main`. Afterward, a separate reporting workflow comments with each result, a bounded excerpt of its output, and a link to the full logs. If a check fails before producing output, the comment directs readers to the workflow logs. The reporting workflow does not check out or execute pull request code.
-
-If branch protection requires reviews, an independent approval is still needed. The workflow token must have permission to merge pull requests. A merge queue may require a GitHub App or personal access token instead of `GITHUB_TOKEN`. A merge performed with `GITHUB_TOKEN` generally does not trigger other workflows on the resulting push, including `DockerBuild`; use a GitHub App or personal access token if that build must run for these merges.
+The Vite dev server proxies `/api` requests to the hosted backend, so running the backend locally is optional. See the [frontend README](frontend/README.md) for details.
