@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.6.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.5.0...v2.6.0) (2026-11-26)
+
+
+### Features
+
+* bootstrap neon render ([#112](https://github.com/Brigghin/bc-ferry-data-platform/issues/112)) ([5a53241](https://github.com/Brigghin/bc-ferry-data-platform/commit/5a5324164cf44e52bcc9dba1fe7e400a0ec47eb0))
+* create frontend ([#121](https://github.com/Brigghin/bc-ferry-data-platform/issues/121)) ([bd7a8a2](https://github.com/Brigghin/bc-ferry-data-platform/commit/bd7a8a27c1784dd300d75a1d66aaadd625e2ea79))
+* document logs with CLI, Loki, and SDK pagination ([bd7a8a2](https://github.com/Brigghin/bc-ferry-data-platform/commit/bd7a8a27c1784dd300d75a1d66aaadd625e2ea79))
+* document logs with CLI, Loki, and SDK pagination ([5a53241](https://github.com/Brigghin/bc-ferry-data-platform/commit/5a5324164cf44e52bcc9dba1fe7e400a0ec47eb0))
+* frontend improvements ([#129](https://github.com/Brigghin/bc-ferry-data-platform/issues/129)) ([a77b77b](https://github.com/Brigghin/bc-ferry-data-platform/commit/a77b77b0efc60fe01a9b99fd79f25f203b3996a8))
+* implement type-safe environment variables with parseEnv ([bd7a8a2](https://github.com/Brigghin/bc-ferry-data-platform/commit/bd7a8a27c1784dd300d75a1d66aaadd625e2ea79))
+* implement type-safe environment variables with parseEnv ([5a53241](https://github.com/Brigghin/bc-ferry-data-platform/commit/5a5324164cf44e52bcc9dba1fe7e400a0ec47eb0))
+* introduce @neon/sdk for TypeScript clients ([bd7a8a2](https://github.com/Brigghin/bc-ferry-data-platform/commit/bd7a8a27c1784dd300d75a1d66aaadd625e2ea79))
+* introduce @neon/sdk for TypeScript clients ([5a53241](https://github.com/Brigghin/bc-ferry-data-platform/commit/5a5324164cf44e52bcc9dba1fe7e400a0ec47eb0))
+* sailing table, crossing durations, and terminal names ([#122](https://github.com/Brigghin/bc-ferry-data-platform/issues/122)) ([dc3803c](https://github.com/Brigghin/bc-ferry-data-platform/commit/dc3803c3b891e426deec324fb160ffd87f9f4dda))
+* workflow upgrades ([#111](https://github.com/Brigghin/bc-ferry-data-platform/issues/111)) ([7c900d3](https://github.com/Brigghin/bc-ferry-data-platform/commit/7c900d35eeba4d7b72b75ba9e16ad4881bd23534))
+
 ## [2.5.0](https://github.com/Brigghin/bc-ferry-data-platform/compare/v2.4.1...v2.5.0) (2026-11-14)
 
 
