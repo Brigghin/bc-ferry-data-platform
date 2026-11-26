@@ -1,6 +1,7 @@
 """Fetch and transform BC Ferries sailing data for the API."""
 
 import logging
+import os
 import re
 from datetime import date, datetime, timezone
 from typing import Any
