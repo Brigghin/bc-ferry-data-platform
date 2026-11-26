@@ -51,3 +51,4 @@ jobs:
               gh pr merge "$number" --auto --squash
             fi
           done <<< "$numbers"
+          
